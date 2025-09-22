@@ -21,7 +21,7 @@ cd go-ai
 ./scripts/01_get_model.sh   # follow prompt; keep kata1*.bin.gz name
 ./scripts/02_build.sh
 ./scripts/03_run.sh
-./scripts/04_benchmark.sh   # see JSON reply
+./scripts/04_probe.sh       # verify JSON analysis fields
 ```
 
 To change how many CPU threads KataGo uses for analysis, export `KATAGO_ANALYSIS_THREADS` before starting the container, for example:

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 MODEL="${KATAGO_MODEL:-/models/latest.bin.gz}"
-CFG="/opt/katago/analysis.cfg"
+CFG="${KATAGO_CONFIG:-/opt/katago/analysis.cfg}"
 PORT="${KATAGO_PORT:-2388}"
 THREADS="${KATAGO_ANALYSIS_THREADS:-8}"
 
@@ -29,6 +29,23 @@ if ! gzip -t "$REAL_MODEL"; then
   exit 1
 fi
 
+if [[ ! -f "$CFG" ]]; then
+  echo "KataGo analysis config not found at $CFG"
+  ls -l "$CFG" 2>/dev/null || true
+  exit 1
+fi
+
+REAL_CFG="$(readlink -f "$CFG")"
+
+case "$REAL_CFG" in
+  /config/*|/opt/katago/*)
+    ;;
+  *)
+    echo "Config file must live under /config or /opt/katago. Found: ${REAL_CFG}"
+    exit 1
+    ;;
+esac
+
 # Check for NVIDIA GPU devices
 if ! compgen -G "/dev/nvidia*" >/dev/null 2>&1; then
   if ! command -v nvidia-smi >/dev/null 2>&1 || ! nvidia-smi >/dev/null 2>&1; then
@@ -44,6 +61,6 @@ echo "Starting KataGo analysis @ 0.0.0.0:${PORT} with model $REAL_MODEL"
 
 exec /opt/katago/katago analysis \
   -model "$REAL_MODEL" \
-  -config "$CFG" \
+  -config "$REAL_CFG" \
   -analysis-threads "$THREADS" \
   -analysis-addr "0.0.0.0:${PORT}"

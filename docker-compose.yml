@@ -2,22 +2,19 @@ version: "3.8"
 
 services:
   katago:
-    build:
-      context: ./docker
-      args:
-        KATAGO_VER: ${KATAGO_VER:-v1.16.2}
-    image: local/katago:${KATAGO_VER:-v1.16.2}
-    container_name: katago-analysis
+    image: ${KATAGO_IMAGE:-katago-json:latest}
+    container_name: katago-json
     environment:
       - KATAGO_MODEL=/models/${KATAGO_MODEL_FILE:-latest.bin.gz}
+      - KATAGO_CONFIG=/config/${KATAGO_CONFIG_FILE:-analysis.cfg}
       - KATAGO_PORT=${KATAGO_PORT:-2388}
-      # Robust GPU exposure (works with recent Toolkit):
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
     ports:
       - "127.0.0.1:${KATAGO_PORT:-2388}:2388"
     volumes:
-      - ./models:/models:ro
+      - ${KATAGO_MODEL_DIR:-./models}:/models:ro
+      - ${KATAGO_CONFIG_DIR:-./config}:/config:ro
     deploy:
       resources:
         reservations:
