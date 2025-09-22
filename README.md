@@ -26,6 +26,11 @@ export KATAGO_ANALYSIS_THREADS=16
 docker compose up -d
 ```
 
+You can also override `analysis.cfg` values without editing the file by exporting `KATAGO_VISITS` (maps to `maxVisits`) or
+`KATAGO_SEARCH_THREADS` (maps to `numSearchThreadsPerAnalysisThread`). When these environment variables are set to positive integers,
+the entrypoint passes them to `katago analysis` via `-override-config`, taking precedence over the base configuration. Leave them
+unset (or empty) to keep the values defined in `analysis.cfg`.
+
 ## KaTrain configuration
 
 KaTrain connects to KataGo through its JSON analysis engine over a socket. Configure the engine in KaTrain → Settings → Engine:
