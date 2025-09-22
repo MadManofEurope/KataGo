@@ -1,23 +1,19 @@
-- Ubuntu 24.04+
-- NVIDIA driver + NVIDIA Container Toolkit
-  - The Docker image uses `nvidia/cuda:12.3.2-runtime-ubuntu24.04`. CUDA 12.3 requires NVIDIA driver **525.60.13** or newer on Linux. The CUDA 12.3 GA release bundles driver **545.23.06**.
-  - NVIDIA documents that the host driver must be **the same version or newer** than the driver inside the container image in order to run CUDA workloads successfully. See the [CUDA Compatibility guide](https://docs.nvidia.com/deploy/cuda-compatibility/index.html#cuda-compatibility-and-upgrades) for details on driver/container interoperability.
-  - Verify your installed driver via `nvidia-smi`. If the driver is older than 525.60.13, upgrade it or rebuild the container with a CUDA base image that matches your driver.
-- KaTrain installed on host (`pip install KaTrain`)
-Refs: KataGo repo & releases, KataGo Analysis Engine docs, kata1 network files, NVIDIA Container Toolkit docs.
-[v] https://github.com/lightvector/KataGo
-[v] https://github.com/lightvector/KataGo/releases
-[v] https://lightvector.github.io/KataGo/analysis.html
-[v] https://katagotraining.org/networks/
-[v] https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html
+## Prerequisites
+
+- Install an NVIDIA driver and the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) on the host. Drivers must be compatible with the container’s CUDA version; see the [CUDA Compatibility guide](https://docs.nvidia.com/deploy/cuda-compatibility/index.html) for driver/container interoperability details.
+- Configure Docker Compose for GPU access by following [Docker’s GPU in Compose documentation](https://docs.docker.com/compose/gpu-support/).
+- The runtime image uses `nvidia/cuda:12.5.1-runtime-ubuntu24.04`. Verify your installed driver with `nvidia-smi`. If the driver is older than what the compatibility guide allows, upgrade it or rebuild the container with a CUDA base image that matches your driver.
+- KaTrain installed on host (`pip install KaTrain`).
 
 ## Quickstart
+
 ```bash
-cd go-ai
+cd KataGo
 ./scripts/00_setup_dirs.sh
 ./scripts/01_get_model.sh   # follow prompt; keep kata1*.bin.gz name
-./scripts/02_build.sh       # builds local/katago:<KATAGO_VER> image via docker compose
-./scripts/03_run.sh         # launches katago-analysis container with docker compose
+docker compose build --no-cache
+docker compose up -d
+docker compose logs -f katago
 ./scripts/04_benchmark.sh   # queries the KataGo analysis engine and prints JSON
 ```
 
@@ -25,10 +21,11 @@ To change how many CPU threads KataGo uses for analysis, export `KATAGO_ANALYSIS
 
 ```bash
 export KATAGO_ANALYSIS_THREADS=16
-./scripts/03_run.sh
+docker compose up -d
 ```
 
 ## KaTrain configuration
+
 KaTrain connects to KataGo through its JSON analysis engine over a socket. Configure the engine in KaTrain → Settings → Engine:
 
 - Engine type: **KataGo JSON (socket)**
@@ -37,3 +34,13 @@ KaTrain connects to KataGo through its JSON analysis engine over a socket. Confi
 - Model: point to the same `.bin.gz` network in your `models/` directory
 
 Once the container is running, KaTrain can attach to the host port and stream KataGo analysis.
+
+## References
+
+- [KataGo repository](https://github.com/lightvector/KataGo)
+- [KataGo releases](https://github.com/lightvector/KataGo/releases)
+- [KataGo analysis engine docs](https://lightvector.github.io/KataGo/analysis.html)
+- [KataGo network files](https://katagotraining.org/networks/)
+- [NVIDIA Container Toolkit install guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
+- [Docker: Use GPUs with Compose](https://docs.docker.com/compose/gpu-support/)
+- [CUDA compatibility guide](https://docs.nvidia.com/deploy/cuda-compatibility/index.html)
