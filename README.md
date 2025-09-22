@@ -1,8 +1,8 @@
 # Local Go Coach: KataGo in Docker + KaTrain on host
 
 ## Requirements
-- Ubuntu 24.04+
-- NVIDIA driver + NVIDIA Container Toolkit
+- Ubuntu 24.04+  
+- NVIDIA driver + NVIDIA Container Toolkit  
 - KaTrain installed on host (`pip install KaTrain`)
 
 Refs: KataGo repo & releases, kata1 network files, NVIDIA Container Toolkit docs.  
@@ -15,7 +15,7 @@ Refs: KataGo repo & releases, kata1 network files, NVIDIA Container Toolkit docs
 ```bash
 cd go-ai
 ./scripts/00_setup_dirs.sh
-./scripts/01_get_model.sh   # follow prompt; save as models/latest.bin.gz
+./scripts/01_get_model.sh   # follow prompt; keep kata1*.bin.gz name
 ./scripts/02_build.sh
 ./scripts/03_run.sh
 ./scripts/04_benchmark.sh   # see JSON reply
