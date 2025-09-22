@@ -11,7 +11,7 @@
 cd KataGo
 ./scripts/00_setup_dirs.sh
 ./scripts/01_get_model.sh   # follow prompt; keep kata1*.bin.gz name
-cp cpp/configs/analysis_example.cfg config/analysis.cfg  # customize as needed
+cp docker/analysis.cfg config/analysis.cfg  # customize as needed
 export IMAGE_TAG=$(git rev-parse --short HEAD)
 docker compose build --no-cache
 docker compose up -d
@@ -44,8 +44,9 @@ Once the container is running, KaTrain can attach to the host port and stream Ka
 
 The container entrypoint starts the KataGo analysis engine with `katago analysis -config <file> -model <file>`. The default
 Compose file binds `./config/analysis.cfg` into the container and points `KATAGO_CONFIG` at `/config/analysis.cfg`, so any
-changes to `config/analysis.cfg` are picked up on restart. KataGo's repository includes an example configuration at
-`cpp/configs/analysis_example.cfg` that can serve as a template.
+changes to `config/analysis.cfg` are picked up on restart. KataGo's repository includes a fuller sample configuration at
+[`cpp/configs/analysis_example.cfg`](https://github.com/lightvector/KataGo/blob/master/cpp/configs/analysis_example.cfg)
+that can serve as a template when you need to reference additional options.
 
 ## References
 
