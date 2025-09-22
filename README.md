@@ -3,6 +3,9 @@
 ## Requirements
 - Ubuntu 24.04+  
 - NVIDIA driver + NVIDIA Container Toolkit  
+  - The Docker image uses `nvidia/cuda:12.3.2-runtime-ubuntu24.04`. For CUDA 12.3, the minimum required NVIDIA driver version on Linux is **525.60.13**.  
+    The CUDA 12.3 GA release also bundles driver version **545.23.06**. Verify your installed driver via `nvidia-smi`.  
+  - If your driver is older than 525.60.13, upgrade it, or rebuild the container using a CUDA base image compatible with your driver.  
 - KaTrain installed on host (`pip install KaTrain`)
 
 Refs: KataGo repo & releases, kata1 network files, NVIDIA Container Toolkit docs.  
