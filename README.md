@@ -18,7 +18,7 @@
 
 ## Quickstart
 ```bash
-cd Katago
+cd KataGo
 ./scripts/00_setup_dirs.sh
 ./scripts/01_get_model.sh   # follow prompt; save as models/latest.bin.gz
 ./scripts/02_build.sh
