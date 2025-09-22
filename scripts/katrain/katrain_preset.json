@@ -1,0 +1,8 @@
+{
+  "engine": "KataGo JSON",
+  "host": "127.0.0.1",
+  "port": 2388,
+  "max_visits": 600,
+  "analysis_threads": 2,
+  "note": "Paste these into KaTrain > Settings if needed."
+}
