@@ -2,9 +2,27 @@
 set -euo pipefail
 
 MODEL="${KATAGO_MODEL:-/models/latest.bin.gz}"
-CFG="/opt/katago/analysis.cfg"
+CFG=""
 PORT="${KATAGO_PORT:-2388}"
 THREADS="${KATAGO_ANALYSIS_THREADS:-8}"
+
+if [[ -n "${KATAGO_CONFIG:-}" ]] && [ -f "${KATAGO_CONFIG}" ]; then
+  CFG="${KATAGO_CONFIG}"
+elif [ -f /config/analysis.cfg ]; then
+  CFG="/config/analysis.cfg"
+elif [ -f /opt/katago/analysis.cfg ]; then
+  CFG="/opt/katago/analysis.cfg"
+fi
+
+if [[ -z "${CFG}" ]]; then
+  echo "No KataGo analysis configuration file found. Set KATAGO_CONFIG or bind /config/analysis.cfg." >&2
+  exit 1
+fi
+
+if [[ -z "${MODEL}" ]]; then
+  echo "KATAGO_MODEL is not set." >&2
+  exit 1
+fi
 
 if [ ! -f "$MODEL" ]; then
   echo "Model not found at $MODEL"
@@ -12,10 +30,22 @@ if [ ! -f "$MODEL" ]; then
   exit 1
 fi
 
+if [ ! -f "$CFG" ]; then
+  echo "Config not found at $CFG" >&2
+  ls -l "$(dirname "$CFG")" || true
+  exit 1
+fi
+
 REAL_MODEL="$(readlink -f "$MODEL")"
+REAL_CFG="$(readlink -f "$CFG")"
 
 if [[ "${REAL_MODEL}" != /models/* ]]; then
   echo "Model file must live under /models. Found: ${REAL_MODEL}"
+  exit 1
+fi
+
+if [[ "${REAL_CFG}" != /config/* && "${REAL_CFG}" != /opt/katago/* ]]; then
+  echo "Config file must be under /config or /opt/katago. Found: ${REAL_CFG}" >&2
   exit 1
 fi
 
@@ -40,10 +70,10 @@ if ! compgen -G "/dev/nvidia*" >/dev/null 2>&1; then
   fi
 fi
 
-echo "Starting KataGo analysis @ 0.0.0.0:${PORT} with model $REAL_MODEL"
+echo "Starting KataGo analysis @ 0.0.0.0:${PORT} with model $REAL_MODEL and config $REAL_CFG"
 
 exec /opt/katago/katago analysis \
   -model "$REAL_MODEL" \
-  -config "$CFG" \
+  -config "$REAL_CFG" \
   -analysis-threads "$THREADS" \
   -analysis-addr "0.0.0.0:${PORT}"
