@@ -3,7 +3,8 @@ set -euo pipefail
 
 MODEL="${KATAGO_MODEL:-/models/latest.bin.gz}"
 CFG=""
-PORT="${KATAGO_PORT:-2388}"
+CONTAINER_PORT="${KATAGO_CONTAINER_PORT:-2388}"
+HOST_PORT="${KATAGO_PORT:-${CONTAINER_PORT}}"
 THREADS="${KATAGO_ANALYSIS_THREADS:-8}"
 
 validate_positive_integer() {
@@ -92,14 +93,14 @@ if ! compgen -G "/dev/nvidia*" >/dev/null 2>&1; then
   fi
 fi
 
-echo "Starting KataGo analysis @ 0.0.0.0:${PORT} with model $REAL_MODEL and config $REAL_CFG"
+echo "Starting KataGo analysis @ 0.0.0.0:${CONTAINER_PORT} (host port ${HOST_PORT}) with model $REAL_MODEL and config $REAL_CFG"
 
 CMD=(
   /opt/katago/katago analysis
   -model "$REAL_MODEL"
   -config "$REAL_CFG"
   -analysis-threads "$THREADS"
-  -analysis-addr "0.0.0.0:${PORT}"
+  -analysis-addr "0.0.0.0:${CONTAINER_PORT}"
 )
 
 if ((${#OVERRIDE_ARGS[@]})); then
