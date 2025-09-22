@@ -2,7 +2,10 @@ version: "3.8"
 
 services:
   katago:
-    image: katago-json:fdf52bf
+    image: katago-json:${IMAGE_TAG:-dev}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
     container_name: katago-analysis
     environment:
       KATAGO_MODEL: /models/${KATAGO_MODEL_FILE:-latest.bin.gz}

@@ -11,6 +11,7 @@
 cd KataGo
 ./scripts/00_setup_dirs.sh
 ./scripts/01_get_model.sh   # follow prompt; keep kata1*.bin.gz name
+export IMAGE_TAG=$(git rev-parse --short HEAD)
 docker compose build --no-cache
 docker compose up -d
 docker compose logs -f katago
