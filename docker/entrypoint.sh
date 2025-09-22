@@ -4,7 +4,7 @@ set -euo pipefail
 MODEL="${KATAGO_MODEL:-/models/latest.bin.gz}"
 CFG="/opt/katago/analysis.cfg"
 PORT="${KATAGO_PORT:-2388}"
-
+THREADS="${KATAGO_ANALYSIS_THREADS:-8}"
 if [ ! -f "$MODEL" ]; then
   echo "Model not found at $MODEL"; ls -l /models || true; exit 1
 fi
