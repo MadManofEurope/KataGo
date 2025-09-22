@@ -1,7 +1,8 @@
 # CUDA-enabled KataGo runtime
-FROM nvidia/cuda:12.3.2-runtime-ubuntu24.04
+FROM nvidia/cuda:12.5.1-runtime-ubuntu24.04
 
-ARG KATAGO_VER=v1.16.2
+ARG KATAGO_VER=v1.16.3
+ARG KATAGO_FLAVOR=cuda12.5-cudnn8.9.7-linux-x64
 WORKDIR /opt/katago
 
 # Minimal deps
@@ -10,9 +11,8 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
  && rm -rf /var/lib/apt/lists/*
 
 # Fetch KataGo release (Linux CUDA build)
-# Verify checksums in production if desired.
 RUN curl -L -o katago.zip \
-    "https://github.com/lightvector/KataGo/releases/download/${KATAGO_VER}/KataGo-${KATAGO_VER}-Linux-x64-cuda.zip" \
+    "https://github.com/lightvector/KataGo/releases/download/${KATAGO_VER}/katago-${KATAGO_VER}-${KATAGO_FLAVOR}.zip" \
  && unzip katago.zip -d /opt/katago \
  && rm katago.zip \
  && chmod +x /opt/katago/katago
