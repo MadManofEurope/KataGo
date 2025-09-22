@@ -6,6 +6,28 @@ CFG=""
 PORT="${KATAGO_PORT:-2388}"
 THREADS="${KATAGO_ANALYSIS_THREADS:-8}"
 
+validate_positive_integer() {
+  local name="$1"
+  local value="$2"
+
+  if [[ ! "$value" =~ ^[0-9]+$ ]] || [ "$value" -le 0 ]; then
+    echo "${name} must be a positive integer. Got: ${value}" >&2
+    exit 1
+  fi
+}
+
+OVERRIDE_ARGS=()
+
+if [[ -n "${KATAGO_VISITS:-}" ]]; then
+  validate_positive_integer "KATAGO_VISITS" "${KATAGO_VISITS}"
+  OVERRIDE_ARGS+=(-override-config "maxVisits=${KATAGO_VISITS}")
+fi
+
+if [[ -n "${KATAGO_SEARCH_THREADS:-}" ]]; then
+  validate_positive_integer "KATAGO_SEARCH_THREADS" "${KATAGO_SEARCH_THREADS}"
+  OVERRIDE_ARGS+=(-override-config "numSearchThreadsPerAnalysisThread=${KATAGO_SEARCH_THREADS}")
+fi
+
 if [[ -n "${KATAGO_CONFIG:-}" ]] && [ -f "${KATAGO_CONFIG}" ]; then
   CFG="${KATAGO_CONFIG}"
 elif [ -f /config/analysis.cfg ]; then
@@ -72,8 +94,16 @@ fi
 
 echo "Starting KataGo analysis @ 0.0.0.0:${PORT} with model $REAL_MODEL and config $REAL_CFG"
 
-exec /opt/katago/katago analysis \
-  -model "$REAL_MODEL" \
-  -config "$REAL_CFG" \
-  -analysis-threads "$THREADS" \
+CMD=(
+  /opt/katago/katago analysis
+  -model "$REAL_MODEL"
+  -config "$REAL_CFG"
+  -analysis-threads "$THREADS"
   -analysis-addr "0.0.0.0:${PORT}"
+)
+
+if ((${#OVERRIDE_ARGS[@]})); then
+  CMD+=("${OVERRIDE_ARGS[@]}")
+fi
+
+exec "${CMD[@]}"
