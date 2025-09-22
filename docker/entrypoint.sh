@@ -2,9 +2,14 @@
 set -euo pipefail
 
 MODEL="${KATAGO_MODEL:-/models/latest.bin.gz}"
-CFG="/opt/katago/analysis.cfg"
+CFG_TEMPLATE="/opt/katago/configs/analysis.cfg.tmpl"
+CFG="/run/katago/analysis.cfg"
 PORT="${KATAGO_PORT:-2388}"
 THREADS="${KATAGO_ANALYSIS_THREADS:-8}"
+
+export KATAGO_MODEL="$MODEL"
+export KATAGO_PORT="$PORT"
+export KATAGO_ANALYSIS_THREADS="$THREADS"
 
 if [ ! -f "$MODEL" ]; then
   echo "Model not found at $MODEL"
@@ -24,10 +29,18 @@ if [[ ! "$(basename "$REAL_MODEL")" =~ ^kata1.*\.bin\.gz$ ]]; then
   exit 1
 fi
 
+if [ ! -f "$CFG_TEMPLATE" ]; then
+  echo "Config template not found at $CFG_TEMPLATE"
+  exit 1
+fi
+
 if ! gzip -t "$REAL_MODEL"; then
   echo "Network file $(basename "$REAL_MODEL") failed gzip integrity check"
   exit 1
 fi
+
+mkdir -p "$(dirname "$CFG")"
+envsubst < "$CFG_TEMPLATE" > "$CFG"
 
 # Check for NVIDIA GPU devices
 if ! compgen -G "/dev/nvidia*" >/dev/null 2>&1; then
@@ -42,7 +55,9 @@ fi
 
 echo "Starting KataGo analysis @ 0.0.0.0:${PORT} with model $REAL_MODEL"
 
-exec /opt/katago/katago analysis \
+/opt/katago/bin/katago benchmark -model "$REAL_MODEL" -seconds 5 || true
+
+exec /opt/katago/bin/katago analysis \
   -model "$REAL_MODEL" \
   -config "$CFG" \
   -analysis-threads "$THREADS" \
