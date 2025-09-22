@@ -1,5 +1,5 @@
 # CUDA-enabled KataGo runtime
-FROM nvidia/cuda:12.3.2-runtime-ubuntu24.04
+FROM nvidia/cuda:12.5.1-cudnn8-runtime-ubuntu24.04
 
 ARG KATAGO_VER=v1.16.2
 WORKDIR /opt/katago
