@@ -1,0 +1,8 @@
+# KataGo analysis configuration template. Values may be overridden via environment variables.
+maxVisits = ${KATAGO_VISITS:-150}
+numAnalysisThreads = ${KATAGO_ANALYSIS_THREADS:-8}
+nnMaxBatchSize = ${KATAGO_NN_MAX_BATCH_SIZE:-64}
+nnCacheSizePowerOfTwo = ${KATAGO_NN_CACHE_SIZE_POW2:-23}
+nnMutexPoolSizePowerOfTwo = ${KATAGO_NN_MUTEX_POOL_SIZE_POW2:-16}
+allowSlowEngine = ${KATAGO_ALLOW_SLOW_ENGINE:-true}
+reportAnalysisWinratesAs = "${KATAGO_REPORT_WINRATES_AS:-BLACK}"

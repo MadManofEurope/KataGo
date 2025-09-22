@@ -2,6 +2,7 @@
 set -euo pipefail
 
 MODEL="${KATAGO_MODEL:-/models/latest.bin.gz}"
+CFG_TEMPLATE="/opt/katago/analysis.cfg.tmpl"
 CFG="/opt/katago/analysis.cfg"
 PORT="${KATAGO_PORT:-2388}"
 THREADS="${KATAGO_ANALYSIS_THREADS:-8}"
@@ -39,6 +40,16 @@ if ! compgen -G "/dev/nvidia*" >/dev/null 2>&1; then
     exit 1
   fi
 fi
+
+if [ ! -f "$CFG_TEMPLATE" ]; then
+  echo "Config template not found at $CFG_TEMPLATE" >&2
+  exit 1
+fi
+
+CONFIG_CONTENT="$(cat "$CFG_TEMPLATE")"
+eval "cat <<EOF
+$CONFIG_CONTENT
+EOF" > "$CFG"
 
 echo "Starting KataGo analysis @ 0.0.0.0:${PORT} with model $REAL_MODEL"
 
