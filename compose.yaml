@@ -10,7 +10,7 @@ services:
       - KATAGO_MODEL=/models/${KATAGO_MODEL_FILE:-latest.bin.gz}
       - KATAGO_PORT=${KATAGO_PORT:-2388}
     ports:
-      - "127.0.0.1:${KATAGO_PORT:-2388}:2388"
+      - "127.0.0.1:${KATAGO_PORT:-2388}:${KATAGO_PORT:-2388}"
     volumes:
       - ./models:/models:ro
     deploy:
