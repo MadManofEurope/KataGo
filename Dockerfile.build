@@ -1,0 +1,24 @@
+# syntax=docker/dockerfile:1.5
+FROM nvidia/cuda:12.4.1-devel-ubuntu22.04
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        cmake \
+        git \
+        libcurl4-openssl-dev \
+        libzip-dev \
+        ninja-build \
+        zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+COPY . /src
+
+ARG CMAKE_CUDA_FLAGS="-DCMAKE_BUILD_TYPE=Release -DUSE_BACKEND=CUDA -DUSE_TENSORRT=0 -DUSE_CUDA=1"
+RUN cmake -S cpp -B build ${CMAKE_CUDA_FLAGS} \
+    && cmake --build build --target katago --parallel \
+    && cmake --install build --prefix /opt/katago
+

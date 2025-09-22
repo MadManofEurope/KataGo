@@ -1,0 +1,18 @@
+# syntax=docker/dockerfile:1.5
+ARG BUILDER_IMAGE=katago-builder:latest
+FROM ${BUILDER_IMAGE} AS build
+
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        socat \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /opt/katago/bin
+COPY --from=build /opt/katago/bin/katago /opt/katago/bin/katago
+
+ENTRYPOINT ["/opt/katago/bin/katago"]
