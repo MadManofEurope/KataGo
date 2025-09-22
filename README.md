@@ -22,3 +22,11 @@ cd go-ai
 ./scripts/02_build.sh
 ./scripts/03_run.sh
 ./scripts/04_benchmark.sh   # see JSON reply
+```
+
+To change how many CPU threads KataGo uses for analysis, export `KATAGO_ANALYSIS_THREADS` before starting the container, for example:
+
+```bash
+export KATAGO_ANALYSIS_THREADS=16
+./scripts/03_run.sh
+```
