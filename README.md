@@ -13,7 +13,7 @@ Refs: KataGo repo & releases, kata1 network files, NVIDIA Container Toolkit docs
 
 ## Quickstart
 ```bash
-cd go-ai
+cd Katago
 ./scripts/00_setup_dirs.sh
 ./scripts/01_get_model.sh   # follow prompt; save as models/latest.bin.gz
 ./scripts/02_build.sh
