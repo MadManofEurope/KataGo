@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MODEL="${KATAGO_MODEL:-/models/latest.bin.gz}"
+MODEL="${KATAGO_MODEL:-${KATAGO_MODEL_FILE:-/models/latest.bin.gz}}"
 CFG="/opt/katago/analysis.cfg"
 PORT="${KATAGO_PORT:-2388}"
 THREADS="${KATAGO_ANALYSIS_THREADS:-8}"
+
+if [[ "$MODEL" != /* ]]; then
+  MODEL="/models/${MODEL}"
+fi
 
 if [ ! -f "$MODEL" ]; then
   echo "Model not found at $MODEL"
@@ -19,8 +23,12 @@ if [[ "${REAL_MODEL}" != /models/* ]]; then
   exit 1
 fi
 
-if [[ ! "$(basename "$REAL_MODEL")" =~ ^kata1.*\.bin\.gz$ ]]; then
-  echo "Incompatible network detected: $(basename "$REAL_MODEL")"
+MODEL_BASENAME="$(basename "$MODEL")"
+REAL_MODEL_BASENAME="$(basename "$REAL_MODEL")"
+
+if [[ ! "$REAL_MODEL_BASENAME" =~ ^kata1.*\.bin\.gz$ ]] && [[ "$REAL_MODEL_BASENAME" != "latest.bin.gz" ]] \
+  && [[ "$MODEL_BASENAME" != "latest.bin.gz" ]]; then
+  echo "Incompatible network detected: $REAL_MODEL_BASENAME"
   exit 1
 fi
 
