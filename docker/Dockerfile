@@ -17,8 +17,8 @@ RUN curl -L -o katago.zip \
  && rm katago.zip \
  && chmod +x /opt/katago/katago
 
-# Config + entrypoint
-COPY analysis.cfg /opt/katago/analysis.cfg
+# Config template + entrypoint
+COPY configs/analysis.cfg.tmpl /opt/katago/analysis.cfg.tmpl
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
