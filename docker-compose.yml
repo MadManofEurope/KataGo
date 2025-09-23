@@ -28,10 +28,7 @@ services:
       - SYS_ADMIN
     security_opt:
       - apparmor:unconfined
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+    device_requests:
+      - driver: nvidia
+        count: 1
+        capabilities: [gpu]
