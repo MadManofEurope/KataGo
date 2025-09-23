@@ -1,7 +1,7 @@
 # KataGo JSON Analysis Service (2.1)
 
 Dockerized KataGo JSON analysis server tuned for Ubuntu 24.04 hosts with NVIDIA GPUs. The runtime image is based on
-`nvidia/cuda:12.5.1-cudnn-runtime-ubuntu24.04`, downloads the official CUDA 12.5 build of KataGo v1.16.3, and exposes the
+`nvidia/cuda:12.5.1-runtime-ubuntu24.04`, downloads the official CUDA 12.5 build of KataGo v1.16.3, and exposes the
 JSON API on port 2388.
 
 ## What's new in 2.1
@@ -26,7 +26,7 @@ JSON API on port 2388.
 cd KataGo
 ./scripts/00_setup_dirs.sh            # creates config/ and models/; copies config/analysis.cfg if missing
 ./scripts/01_get_model.sh              # downloads the newest kata1 network and links models/latest.bin.gz
-./scripts/02_build.sh                  # builds katago-json:${GIT_SHA:-local}
+./scripts/02_build.sh                  # builds katago-json:${GIT_SHA_SHORT:-local}
 ./scripts/03_run.sh                    # launches the JSON analysis service and waits for health
 curl -fsS http://127.0.0.1:2388 \
   -H 'Content-Type: application/json' \
@@ -47,9 +47,14 @@ and indicate the GPU-enabled analysis service is ready.
 
 ## Compose details
 
-`compose.yaml` builds the image locally (`katago-json:${GIT_SHA:-local}`), publishes port `2388`, mounts the configuration and
-models directories read-only, and reserves all NVIDIA GPUs using the Compose `deploy.resources.reservations.devices` stanza. The
+`docker-compose.yml` builds the image locally (`katago-json:${GIT_SHA_SHORT:-local}`), publishes port `2388`, mounts the configuration and
+models directories read-only, and reserves all NVIDIA GPUs using the Compose `deploy.resources.reservations.devices` stanza so the
 container healthcheck posts `query_version` to the JSON endpoint to verify readiness.
+
+## Troubleshooting
+
+- If the Docker build fails immediately at the `FROM` instruction, verify that `nvidia/cuda:12.5.1-runtime-ubuntu24.04` still
+  exists on Docker Hub and adjust the tag if NVIDIA republishes it under a different name.
 
 ## References
 

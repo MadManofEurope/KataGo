@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.5.1-cudnn-runtime-ubuntu24.04 AS downloader
+FROM nvidia/cuda:12.5.1-runtime-ubuntu24.04 AS downloader
 
 ARG KATAGO_VER=v1.16.3
 ARG KATAGO_FLAVOR=cuda12.5-cudnn8.9.7-linux-x64
@@ -18,7 +18,7 @@ RUN set -eux; \
   unzip -j katago.zip katago; \
   rm katago.zip
 
-FROM nvidia/cuda:12.5.1-cudnn-runtime-ubuntu24.04
+FROM nvidia/cuda:12.5.1-runtime-ubuntu24.04
 
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
