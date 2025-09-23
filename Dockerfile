@@ -32,8 +32,8 @@ RUN useradd --create-home --shell /usr/sbin/nologin katago
 WORKDIR /opt/katago
 
 COPY --from=downloader /tmp/katago/katago /opt/katago/katago
-COPY docker/serve.py /opt/katago/serve.py
-COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY serve.py /opt/katago/serve.py
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 
 RUN chmod 755 /opt/katago/katago /opt/katago/serve.py /usr/local/bin/entrypoint.sh \
   && chown -R katago:katago /opt/katago /usr/local/bin/entrypoint.sh
