@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: ./Dockerfile
-    image: katago-json:${GIT_SHA:-local}
+    image: katago-json:${GIT_SHA_SHORT:-local}
     environment:
       PORT: "${PORT:-2388}"
       KATAGO_CONFIG: "${KATAGO_CONFIG:-/config/analysis.cfg}"
@@ -18,8 +18,8 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              count: "all"
-              capabilities: ["gpu"]
+              count: all
+              capabilities: [gpu]
     healthcheck:
       test:
         - CMD-SHELL

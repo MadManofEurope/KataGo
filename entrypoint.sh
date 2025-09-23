@@ -2,7 +2,15 @@
 set -euo pipefail
 
 MODEL="${KATAGO_MODEL:-/models/latest.bin.gz}"
-CFG="${KATAGO_CONFIG:-/config/analysis.cfg}"
+if [[ "${KATAGO_CONFIG+x}" == "x" ]]; then
+  if [[ -z "${KATAGO_CONFIG}" ]]; then
+    echo "KATAGO_CONFIG is set but empty; provide a path to a configuration file." >&2
+    exit 1
+  fi
+  CFG="${KATAGO_CONFIG}"
+else
+  CFG="/opt/katago/analysis.cfg"
+fi
 PORT="${PORT:-2388}"
 LISTEN_ADDR="${KATAGO_LISTEN:-0.0.0.0}"
 
@@ -39,11 +47,6 @@ if [[ -n "${KATAGO_ANALYSIS_THREADS:-}" ]]; then
   CONFIG_OVERRIDES+=("numAnalysisThreads=${KATAGO_ANALYSIS_THREADS}")
 fi
 
-if [[ -z "${CFG}" ]]; then
-  echo "No KataGo analysis configuration path provided via KATAGO_CONFIG." >&2
-  exit 1
-fi
-
 if [[ ! -f "${CFG}" ]]; then
   echo "Config not found at ${CFG}" >&2
   ls -l "$(dirname "${CFG}")" || true
@@ -63,14 +66,15 @@ fi
 
 REAL_MODEL="$(readlink -f "$MODEL")"
 REAL_CFG="$(readlink -f "$CFG")"
+echo "Using KataGo analysis config: ${REAL_CFG}" >&2
 
 if [[ "${REAL_MODEL}" != /models/* ]]; then
   echo "Model file must live under /models. Found: ${REAL_MODEL}" >&2
   exit 1
 fi
 
-if [[ "${REAL_CFG}" != /config/* ]]; then
-  echo "Config file must be under /config. Found: ${REAL_CFG}" >&2
+if [[ "${REAL_CFG}" != /config/* && "${REAL_CFG}" != /opt/katago/* ]]; then
+  echo "Config file must be under /config or /opt/katago. Found: ${REAL_CFG}" >&2
   exit 1
 fi
 

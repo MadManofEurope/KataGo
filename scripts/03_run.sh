@@ -10,7 +10,7 @@ if [ -f .env ]; then
   set +a
 fi
 
-export GIT_SHA="${GIT_SHA:-$(git rev-parse --short HEAD 2>/dev/null || echo local)}"
+export GIT_SHA_SHORT="${GIT_SHA_SHORT:-$(git rev-parse --short HEAD 2>/dev/null || echo local)}"
 
 PORT="${PORT:-2388}"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-180}"
