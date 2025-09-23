@@ -10,6 +10,12 @@ if [ -f .env ]; then
   set +a
 fi
 
+GIT_SHA="${GIT_SHA:-$(git rev-parse --short HEAD 2>/dev/null || true)}"
+if [[ -z "${GIT_SHA}" ]]; then
+  GIT_SHA="local"
+fi
+export GIT_SHA
+
 PORT="${PORT:-2388}"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-180}"
 
@@ -18,7 +24,7 @@ if ! command -v curl >/dev/null 2>&1; then
   exit 1
 fi
 
-docker compose up -d
+docker compose up --build -d
 
 deadline=$((SECONDS + HEALTH_TIMEOUT))
 
