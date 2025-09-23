@@ -5,7 +5,6 @@ MODEL="${KATAGO_MODEL:-/models/latest.bin.gz}"
 CFG=""
 CONTAINER_PORT="${KATAGO_CONTAINER_PORT:-2388}"
 HOST_PORT="${KATAGO_PORT:-${CONTAINER_PORT}}"
-THREADS="${KATAGO_ANALYSIS_THREADS:-8}"
 
 validate_positive_integer() {
   local name="$1"
@@ -27,6 +26,11 @@ fi
 if [[ -n "${KATAGO_SEARCH_THREADS:-}" ]]; then
   validate_positive_integer "KATAGO_SEARCH_THREADS" "${KATAGO_SEARCH_THREADS}"
   OVERRIDE_ARGS+=(-override-config "numSearchThreadsPerAnalysisThread=${KATAGO_SEARCH_THREADS}")
+fi
+
+if [[ -n "${KATAGO_ANALYSIS_THREADS:-}" ]]; then
+  validate_positive_integer "KATAGO_ANALYSIS_THREADS" "${KATAGO_ANALYSIS_THREADS}"
+  OVERRIDE_ARGS+=(-override-config "numAnalysisThreads=${KATAGO_ANALYSIS_THREADS}")
 fi
 
 if [[ -n "${KATAGO_CONFIG:-}" ]] && [ -f "${KATAGO_CONFIG}" ]; then
@@ -100,7 +104,6 @@ CMD=(
   analysis
   -model "$REAL_MODEL"
   -config "$REAL_CFG"
-  -analysis-threads "$THREADS"
 )
 
 if ((${#OVERRIDE_ARGS[@]})); then
