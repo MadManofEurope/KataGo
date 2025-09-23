@@ -20,8 +20,8 @@ RUN curl -L -o katago.zip \
  && chmod +x /opt/katago/katago
 
 # Config + entrypoint
-COPY analysis.cfg /opt/katago/analysis.cfg
-COPY entrypoint.sh /entrypoint.sh
+COPY docker/analysis.cfg /opt/katago/analysis.cfg
+COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # Models mounted at /models
