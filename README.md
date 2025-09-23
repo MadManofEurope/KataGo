@@ -31,6 +31,24 @@ You can also override `analysis.cfg` values without editing the file by exportin
 the entrypoint passes them to `katago analysis` via `-override-config`, taking precedence over the base configuration. Leave them
 unset (or empty) to keep the values defined in `analysis.cfg`.
 
+### Building for specific CUDA architectures
+
+The helper script `build_and_extract.sh` compiles the KataGo CUDA binary inside Docker. By default it requests `native` architectures,
+which lets CMake choose an appropriate target for the build container's GPU stack. To explicitly compile kernels for multiple GPU
+generations, set the semicolon-delimited list of architectures (for example `"75;80;86;89"`) via either the `CUDA_ARCHITECTURES`
+environment variable or the script flag:
+
+```bash
+# Environment variable
+CUDA_ARCHITECTURES="75;80;86;89" ./build_and_extract.sh
+
+# Command-line flag
+./build_and_extract.sh --cuda-architectures "75;80;86;89"
+```
+
+Passing an empty string (for example, `CUDA_ARCHITECTURES= ./build_and_extract.sh`) omits the CMake flag so KataGo detects supported
+architectures at runtime instead of during compilation.
+
 ## KaTrain configuration
 
 KaTrain connects to KataGo through its JSON analysis engine over a socket. Configure the engine in KaTrain → Settings → Engine:

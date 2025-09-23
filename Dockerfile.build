@@ -1,5 +1,7 @@
 FROM nvidia/cuda:12.4.1-devel-ubuntu22.04
 
+ARG CUDA_ARCHITECTURES=native
+
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         git \
@@ -12,9 +14,15 @@ RUN apt-get update \
 
 RUN git clone --depth 1 --branch v1.16.3 https://github.com/lightvector/KataGo.git /src/katago
 
-RUN cmake -S /src/katago/cpp -B /src/build \
-    -DUSE_BACKEND=CUDA \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_CUDA_ARCHITECTURES=86
+RUN set -eux; \
+    if [ -n "${CUDA_ARCHITECTURES}" ]; then \
+        ARCH_FLAG="-DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES}"; \
+    else \
+        ARCH_FLAG=""; \
+    fi; \
+    cmake -S /src/katago/cpp -B /src/build \
+        -DUSE_BACKEND=CUDA \
+        -DCMAKE_BUILD_TYPE=Release \
+        ${ARCH_FLAG:+$ARCH_FLAG}
 
 RUN cmake --build /src/build -j"$(nproc)"
