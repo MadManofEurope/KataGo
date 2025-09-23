@@ -137,19 +137,26 @@ class KataGoRequestHandler(socketserver.StreamRequestHandler):
                 text_body += "\n"
             proc.stdin.write(text_body)
             proc.stdin.flush()
-            response = proc.stdout.readline()
-        finally:
             try:
                 proc.stdin.close()  # type: ignore[call-arg]
             except Exception:
                 pass
+
+            responses: List[str] = []
+            while True:
+                line = proc.stdout.readline()
+                if not line:
+                    break
+                responses.append(line)
+        finally:
             proc.wait(timeout=5)
 
-        if not response:
+        if not responses:
             self._send_http_error(502, "No response from KataGo")
             return
 
-        payload = response.encode("utf-8")
+        response_text = "".join(responses)
+        payload = response_text.encode("utf-8")
         headers_out = (
             f"HTTP/1.1 200 OK\r\n"
             f"Content-Type: application/json\r\n"
