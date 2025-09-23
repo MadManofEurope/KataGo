@@ -12,7 +12,6 @@ services:
       KATAGO_PORT: "${KATAGO_PORT:-2388}"
       KATAGO_CONTAINER_PORT: "${KATAGO_CONTAINER_PORT:-2388}"
       KATAGO_ANALYSIS_THREADS: "${KATAGO_ANALYSIS_THREADS:-}"
-      # Set to positive integers to override the corresponding values in analysis.cfg at runtime.
       KATAGO_VISITS: "${KATAGO_VISITS:-}"
       KATAGO_SEARCH_THREADS: "${KATAGO_SEARCH_THREADS:-}"
       KATAGO_CONFIG: /config/analysis.cfg
@@ -22,7 +21,7 @@ services:
       - "127.0.0.1:${KATAGO_PORT:-2388}:${KATAGO_CONTAINER_PORT:-2388}"
     volumes:
       - ./models:/models:ro
-      - ./config:/config:ro
+      - ./config/analysis.cfg:/config/analysis.cfg:ro
     deploy:
       resources:
         reservations:
