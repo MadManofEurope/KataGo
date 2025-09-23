@@ -18,6 +18,12 @@ validate_positive_integer() {
 
 CONFIG_OVERRIDES=()
 
+NN_MAX_BATCH_SIZE="${KATAGO_NN_MAX_BATCH_SIZE:-32}"
+if [[ -n "${NN_MAX_BATCH_SIZE}" ]]; then
+  validate_positive_integer "KATAGO_NN_MAX_BATCH_SIZE" "${NN_MAX_BATCH_SIZE}"
+  CONFIG_OVERRIDES+=("nnMaxBatchSize=${NN_MAX_BATCH_SIZE}")
+fi
+
 if [[ -n "${KATAGO_VISITS:-}" ]]; then
   validate_positive_integer "KATAGO_VISITS" "${KATAGO_VISITS}"
   CONFIG_OVERRIDES+=("maxVisits=${KATAGO_VISITS}")

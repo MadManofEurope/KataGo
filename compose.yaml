@@ -1,4 +1,3 @@
-version: "3.9"
 services:
   katago:
     build:
@@ -18,7 +17,7 @@ services:
               count: all
               capabilities: [gpu]
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:2388", "-H", "Content-Type: application/json", "-d", "{\"id\":\"ping\",\"action\":\"query_version\"}"]
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:2388 -H 'Content-Type: application/json' -d '{\"id\":\"ping\",\"action\":\"query_version\"}' >/dev/null || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 10
