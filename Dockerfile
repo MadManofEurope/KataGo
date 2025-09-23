@@ -18,6 +18,13 @@ RUN set -eux; \
   unzip -j katago.zip katago; \
   rm katago.zip
 
+RUN set -eux; cd /tmp/katago; \
+  chmod +x katago || true; \
+  ./katago --appimage-extract || true; \
+  if [ -e squashfs-root/usr/bin/katago ]; then \
+    mv squashfs-root/usr/bin/katago katago; rm -rf squashfs-root; \
+  fi
+
 FROM nvidia/cuda:12.5.1-runtime-ubuntu24.04
 
 RUN apt-get update \

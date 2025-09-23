@@ -2,15 +2,8 @@
 set -euo pipefail
 
 MODEL="${KATAGO_MODEL:-/models/latest.bin.gz}"
-if [[ "${KATAGO_CONFIG+x}" == "x" ]]; then
-  if [[ -z "${KATAGO_CONFIG}" ]]; then
-    echo "KATAGO_CONFIG is set but empty; provide a path to a configuration file." >&2
-    exit 1
-  fi
-  CFG="${KATAGO_CONFIG}"
-else
-  CFG="/opt/katago/analysis.cfg"
-fi
+CFG="${KATAGO_CONFIG:-/opt/katago/analysis.cfg}"
+echo "Requested KataGo analysis config: ${CFG}" >&2
 PORT="${PORT:-2388}"
 LISTEN_ADDR="${KATAGO_LISTEN:-0.0.0.0}"
 
@@ -66,7 +59,7 @@ fi
 
 REAL_MODEL="$(readlink -f "$MODEL")"
 REAL_CFG="$(readlink -f "$CFG")"
-echo "Using KataGo analysis config: ${REAL_CFG}" >&2
+echo "Resolved KataGo analysis config: ${REAL_CFG}" >&2
 
 if [[ "${REAL_MODEL}" != /models/* ]]; then
   echo "Model file must live under /models. Found: ${REAL_MODEL}" >&2

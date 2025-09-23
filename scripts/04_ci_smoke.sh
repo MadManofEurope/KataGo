@@ -8,28 +8,22 @@ trap cleanup EXIT
 
 payload='{"id":"ping","action":"query_version"}'
 
-# Rebuild image without cache to ensure Dockerfile changes are respected
-docker compose build --no-cache
-
+docker compose build
 docker compose up -d
 
 endpoint="http://127.0.0.1:2388"
-start_time=$(date +%s)
+deadline=$((SECONDS + 60))
 
-while true; do
+while (( SECONDS < deadline )); do
   if curl -fsS "${endpoint}" \
     -H 'Content-Type: application/json' \
     -d "${payload}" >/dev/null; then
-    break
+    echo "KataGo JSON API responded successfully"
+    exit 0
   fi
-
-  if (( $(date +%s) - start_time >= 60 )); then
-    echo "KataGo JSON API did not become ready within 60 seconds" >&2
-    docker compose logs --no-color katago | tail -n 200
-    exit 1
-  fi
-
   sleep 2
 done
 
-echo "KataGo JSON API responded successfully"
+echo "KataGo JSON API did not become ready within 60 seconds" >&2
+docker compose logs --no-color katago | tail -n 200 || true
+exit 1

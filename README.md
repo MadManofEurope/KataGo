@@ -9,6 +9,8 @@ JSON API on port 2388.
 - Local-first Docker Compose workflow that always builds the image from source before running.
 - Host-mounted configuration respected via `${KATAGO_CONFIG:-/config/analysis.cfg}` so local edits take effect immediately.
 - Compose GPU reservation stanza requests all NVIDIA GPUs using the standard `deploy.resources.reservations.devices` block.
+- Upstream Linux builds ship as AppImages; the Docker build now extracts KataGo to a plain ELF during image creation so FUSE is never required inside the container runtime.
+- Container healthcheck polls the JSON API every 5 seconds after a 40-second start period, matching the expected GPU initialization time on Ubuntu 24.04 hosts.
 - Helper scripts are idempotent and safe to re-run; they create directories, refresh models, rebuild images, and verify the
   JSON endpoint automatically.
 
@@ -48,8 +50,8 @@ and indicate the GPU-enabled analysis service is ready.
 ## Compose details
 
 `docker-compose.yml` builds the image locally (`katago-json:${GIT_SHA_SHORT:-local}`), publishes port `2388`, mounts the configuration and
-models directories read-only, and reserves all NVIDIA GPUs using the Compose `deploy.resources.reservations.devices` stanza so the
-container healthcheck posts `query_version` to the JSON endpoint to verify readiness.
+models directories read-only, reserves all NVIDIA GPUs using the Compose `deploy.resources.reservations.devices` stanza, and defines a
+healthcheck that posts `query_version` every 5 seconds after a 40-second start period to verify readiness without racing GPU startup.
 
 ## Troubleshooting
 
