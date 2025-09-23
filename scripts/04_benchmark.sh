@@ -3,7 +3,12 @@
 set -euo pipefail
 PORT="${KATAGO_PORT:-2388}"
 
-REQ='{"id":"bench1","moves":"","rules":"Chinese","komi":7.5,
-"boardXSize":19,"boardYSize":19,"analyzeTurns":[-1],"maxVisits":200}'
+REQ='{"id":"bench1","action":"query_version"}'
 
-printf '%s\n' "$REQ" | nc 127.0.0.1 "$PORT" | head -n 5
+if command -v curl >/dev/null 2>&1; then
+  curl -s http://127.0.0.1:"$PORT" \
+    -H 'Content-Type: application/json' \
+    -d "$REQ" | python3 -m json.tool
+else
+  printf '%s\n' "$REQ" | nc 127.0.0.1 "$PORT" | head -n 5
+fi

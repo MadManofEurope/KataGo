@@ -2,7 +2,7 @@
 
 - Install an NVIDIA driver and the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) on the host. Drivers must be compatible with the container’s CUDA version; see the [CUDA Compatibility guide](https://docs.nvidia.com/deploy/cuda-compatibility/index.html) for driver/container interoperability details.
 - Configure Docker Compose for GPU access by following [Docker’s GPU in Compose documentation](https://docs.docker.com/compose/gpu-support/).
-- The runtime image uses `nvidia/cuda:12.5.1-runtime-ubuntu24.04`. Verify your installed driver with `nvidia-smi`. If the driver is older than what the compatibility guide allows, upgrade it or rebuild the container with a CUDA base image that matches your driver.
+- The runtime image uses `nvidia/cuda:12.5.1-cudnn-runtime-ubuntu24.04` and downloads the `katago-v1.16.3-cuda12.5-cudnn8.9.7-linux-x64.zip` release asset. NVIDIA driver 580.65.06 already satisfies CUDA 12.x compatibility; older drivers must be upgraded or the Dockerfile must be rebuilt against a matching CUDA tag.
 - KaTrain installed on host (`pip install KaTrain`).
 
 ## Quickstart
@@ -13,10 +13,26 @@ cd KataGo
 ./scripts/01_get_model.sh   # downloads the newest kata1 network and verifies gzip integrity
 cp docker/analysis.cfg config/analysis.cfg  # customize as needed
 export IMAGE_TAG=$(git rev-parse --short HEAD)
-docker compose build --no-cache
+docker compose build
 docker compose up -d
-docker compose logs -f katago
-./scripts/04_benchmark.sh   # queries the KataGo analysis engine and prints JSON
+docker compose ps
+docker compose run --rm katago curl -s http://127.0.0.1:2388 \
+  -H 'Content-Type: application/json' \
+  -d '{"id":"ping","action":"query_version"}' | python3 -m json.tool
+```
+
+The `curl` probe is a quick regression test that should echo a JSON object containing `id`, `action`, and `version` keys. You can also run the same request from the host once the container is healthy:
+
+```bash
+curl -s http://127.0.0.1:2388 \
+  -H 'Content-Type: application/json' \
+  -d '{"id":"ping","action":"query_version"}' | python3 -m json.tool
+```
+
+One-line self-test from the host:
+
+```bash
+docker compose run --rm katago curl -s http://127.0.0.1:2388 -H 'Content-Type: application/json' -d '{"id":"ping","action":"query_version"}'
 ```
 
 To override how many CPU threads KataGo uses for analysis, export `KATAGO_ANALYSIS_THREADS` before starting the container. For
@@ -58,11 +74,21 @@ KaTrain connects to KataGo through its JSON analysis engine over a socket. Confi
 
 Once the container is running, KaTrain can attach to the host port and stream KataGo analysis.
 
-The container entrypoint starts the KataGo analysis engine with `katago analysis -config <file> -model <file>`. The default
-Compose file binds `./config/analysis.cfg` into the container and points `KATAGO_CONFIG` at `/config/analysis.cfg`, so any
-changes to `config/analysis.cfg` are picked up on restart. KataGo's repository includes a fuller sample configuration at
+The container entrypoint now launches a small Python proxy that accepts socket connections and spawns `katago analysis -model <file> -config <file>`
+per client. Raw TCP sessions (used by KaTrain) are streamed directly to KataGo, while HTTP POST requests are translated so tooling
+like `curl` can perform health checks. The default Compose file binds `./config/analysis.cfg` into the container and points
+`KATAGO_CONFIG` at `/config/analysis.cfg`, so any changes to `config/analysis.cfg` are picked up on restart. KataGo's repository
+includes a fuller sample configuration at
 [`cpp/configs/analysis_example.cfg`](https://github.com/lightvector/KataGo/blob/master/cpp/configs/analysis_example.cfg)
 that can serve as a template when you need to reference additional options.
+
+FUSE is no longer required because the container unpacks the official ZIP release directly. If you later experiment with AppImage
+builds that still need FUSE, uncomment the `devices`, `cap_add`, and `security_opt` snippets in `docker-compose.yml`, run `sudo modprobe fuse`
+on the host, and verify the device is exposed with:
+
+```bash
+docker exec katago-analysis test -e /dev/fuse && echo "fuse device present"
+```
 
 ## References
 

@@ -16,21 +16,21 @@ validate_positive_integer() {
   fi
 }
 
-OVERRIDE_ARGS=()
+CONFIG_OVERRIDES=()
 
 if [[ -n "${KATAGO_VISITS:-}" ]]; then
   validate_positive_integer "KATAGO_VISITS" "${KATAGO_VISITS}"
-  OVERRIDE_ARGS+=(-override-config "maxVisits=${KATAGO_VISITS}")
+  CONFIG_OVERRIDES+=("maxVisits=${KATAGO_VISITS}")
 fi
 
 if [[ -n "${KATAGO_SEARCH_THREADS:-}" ]]; then
   validate_positive_integer "KATAGO_SEARCH_THREADS" "${KATAGO_SEARCH_THREADS}"
-  OVERRIDE_ARGS+=(-override-config "numSearchThreadsPerAnalysisThread=${KATAGO_SEARCH_THREADS}")
+  CONFIG_OVERRIDES+=("numSearchThreadsPerAnalysisThread=${KATAGO_SEARCH_THREADS}")
 fi
 
 if [[ -n "${KATAGO_ANALYSIS_THREADS:-}" ]]; then
   validate_positive_integer "KATAGO_ANALYSIS_THREADS" "${KATAGO_ANALYSIS_THREADS}"
-  OVERRIDE_ARGS+=(-override-config "numAnalysisThreads=${KATAGO_ANALYSIS_THREADS}")
+  CONFIG_OVERRIDES+=("numAnalysisThreads=${KATAGO_ANALYSIS_THREADS}")
 fi
 
 if [[ -n "${KATAGO_CONFIG:-}" ]] && [ -f "${KATAGO_CONFIG}" ]; then
@@ -99,23 +99,16 @@ fi
 
 echo "Starting KataGo analysis @ 0.0.0.0:${CONTAINER_PORT} (host port ${HOST_PORT}) with model $REAL_MODEL and config $REAL_CFG"
 
-CMD=(
-  /opt/katago/katago
-  analysis
-  -model "$REAL_MODEL"
-  -config "$REAL_CFG"
+PROXY_ARGS=(
+  --listen 0.0.0.0
+  --port "$CONTAINER_PORT"
+  --katago /opt/katago/katago
+  --model "$REAL_MODEL"
+  --config "$REAL_CFG"
 )
 
-if ((${#OVERRIDE_ARGS[@]})); then
-  CMD+=("${OVERRIDE_ARGS[@]}")
-fi
+for override in "${CONFIG_OVERRIDES[@]}"; do
+  PROXY_ARGS+=(--override-config "$override")
+done
 
-printf -v KATAGO_CMD '%q ' "${CMD[@]}"
-KATAGO_CMD="${KATAGO_CMD% }"
-
-SOCAT_ARGS=(
-  "TCP-LISTEN:${CONTAINER_PORT},reuseaddr,fork"
-  "EXEC:${KATAGO_CMD}"
-)
-
-exec socat "${SOCAT_ARGS[@]}"
+exec python3 /opt/katago/serve.py "${PROXY_ARGS[@]}"
