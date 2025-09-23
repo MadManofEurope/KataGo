@@ -1,8 +1,6 @@
 services:
   katago:
-    build:
-      context: .
-      dockerfile: ./Dockerfile
+    build: { context: ".", dockerfile: "Dockerfile" }
     image: katago-json:${GIT_SHA_SHORT:-local}
     environment:
       PORT: "${PORT:-2388}"
@@ -24,11 +22,9 @@ services:
       test:
         - CMD-SHELL
         - >
-          curl -fsS -X POST http://127.0.0.1:${PORT:-2388}
-          -H 'Content-Type: application/json'
-          -d '{"id":"ping","action":"query_version"}'
-          >/dev/null
-      interval: 10s
-      timeout: 3s
-      retries: 10
-      start_period: 15s
+          curl -fsS http://127.0.0.1:2388 -H 'Content-Type: application/json' -d '{"id":"ping","action":"query_version"}' >/dev/null || exit 1
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+      start_interval: 5s
