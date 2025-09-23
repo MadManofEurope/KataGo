@@ -59,10 +59,11 @@ PY
 filename="${model_url##*/}"
 dest_path="${MODELS_DIR}/${filename}"
 
+tmp_file="${dest_path}.tmp"
+
 if [ -f "${dest_path}" ]; then
   echo "${filename} already exists. Verifying integrity..."
 else
-  tmp_file="${dest_path}.tmp"
   echo "Downloading ${filename} from ${model_url}" >&2
   curl -fL "${model_url}" -o "${tmp_file}"
   mv "${tmp_file}" "${dest_path}"
@@ -72,9 +73,12 @@ fi
 if ! gzip -t "${dest_path}"; then
   echo "Network file ${dest_path} failed gzip integrity check." >&2
   echo "Re-download the file; incomplete downloads are not usable." >&2
-  rm -f "${dest_path}"
+  rm -f "${dest_path}" "${tmp_file}"
   exit 1
 fi
 
-ln -sf "${filename}" "${MODELS_DIR}/latest.bin.gz"
+link_tmp="${MODELS_DIR}/latest.bin.gz.tmp"
+ln -sfn "${filename}" "${link_tmp}"
+mv -Tf "${link_tmp}" "${MODELS_DIR}/latest.bin.gz"
+
 echo "Linked ${filename} as models/latest.bin.gz"

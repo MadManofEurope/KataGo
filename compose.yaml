@@ -4,8 +4,12 @@ services:
       context: .
       dockerfile: docker/Dockerfile
     image: katago-json:${GIT_SHA:-local}
+    environment:
+      PORT: "${PORT:-2388}"
+      KATAGO_CONFIG: "${KATAGO_CONFIG:-/config/analysis.cfg}"
+      KATAGO_MODEL: "/models/latest.bin.gz"
     ports:
-      - "2388:2388"
+      - "${PORT:-2388}:${PORT:-2388}"
     volumes:
       - ./config:/config:ro
       - ./models:/models:ro
@@ -15,9 +19,16 @@ services:
           devices:
             - driver: nvidia
               count: all
-              capabilities: [gpu]
+              capabilities:
+                - gpu
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:2388 -H 'Content-Type: application/json' -d '{\"id\":\"ping\",\"action\":\"query_version\"}' >/dev/null || exit 1"]
+      test:
+        - CMD-SHELL
+        - >
+          curl -fsS -X POST http://127.0.0.1:${PORT:-2388}
+          -H 'Content-Type: application/json'
+          -d '{"id":"ping","action":"query_version"}'
+          >/dev/null
       interval: 10s
       timeout: 3s
       retries: 10
