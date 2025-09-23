@@ -15,14 +15,15 @@ RUN apt-get update \
 RUN git clone --depth 1 --branch v1.16.3 https://github.com/lightvector/KataGo.git /src/katago
 
 RUN set -eux; \
-    if [ -n "${CUDA_ARCHITECTURES}" ]; then \
-        ARCH_FLAG="-DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES}"; \
-    else \
-        ARCH_FLAG=""; \
-    fi; \
-    cmake -S /src/katago/cpp -B /src/build \
+    cmake_args=( \
+        -S /src/katago/cpp \
+        -B /src/build \
         -DUSE_BACKEND=CUDA \
         -DCMAKE_BUILD_TYPE=Release \
-        ${ARCH_FLAG:+$ARCH_FLAG}
+    ); \
+    if [ -n "${CUDA_ARCHITECTURES}" ]; then \
+        cmake_args+=("-DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES}"); \
+    fi; \
+    cmake "${cmake_args[@]}"
 
 RUN cmake --build /src/build -j"$(nproc)"
