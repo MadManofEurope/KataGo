@@ -1,0 +1,25 @@
+version: "3.9"
+services:
+  katago:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: katago-json:${GIT_SHA:-local}
+    ports:
+      - "2388:2388"
+    volumes:
+      - ./config:/config:ro
+      - ./models:/models:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:2388", "-H", "Content-Type: application/json", "-d", "{\"id\":\"ping\",\"action\":\"query_version\"}"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 15s
