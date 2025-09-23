@@ -96,15 +96,23 @@ fi
 echo "Starting KataGo analysis @ 0.0.0.0:${CONTAINER_PORT} (host port ${HOST_PORT}) with model $REAL_MODEL and config $REAL_CFG"
 
 CMD=(
-  /opt/katago/katago analysis
+  /opt/katago/katago
+  analysis
   -model "$REAL_MODEL"
   -config "$REAL_CFG"
   -analysis-threads "$THREADS"
-  -analysis-addr "0.0.0.0:${CONTAINER_PORT}"
 )
 
 if ((${#OVERRIDE_ARGS[@]})); then
   CMD+=("${OVERRIDE_ARGS[@]}")
 fi
 
-exec "${CMD[@]}"
+printf -v KATAGO_CMD '%q ' "${CMD[@]}"
+KATAGO_CMD="${KATAGO_CMD% }"
+
+SOCAT_ARGS=(
+  "TCP-LISTEN:${CONTAINER_PORT},reuseaddr,fork"
+  "EXEC:${KATAGO_CMD}"
+)
+
+exec socat "${SOCAT_ARGS[@]}"
