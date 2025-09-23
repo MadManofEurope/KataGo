@@ -138,9 +138,9 @@ else
   record FAIL "Analysis config" "Provide ./config/analysis.cfg"
 fi
 
-if grep -q 'KATAGO_CONFIG' docker/entrypoint.sh; then
-  record PASS "Entrypoint config" "docker/entrypoint.sh honors KATAGO_CONFIG"
-elif grep -q '/config/analysis.cfg' docker/entrypoint.sh; then
+if grep -q 'KATAGO_CONFIG' entrypoint.sh; then
+  record PASS "Entrypoint config" "entrypoint.sh honors KATAGO_CONFIG"
+elif grep -q '/config/analysis.cfg' entrypoint.sh; then
   record FAIL "Entrypoint config" "Config ignored → update entrypoint to honor KATAGO_CONFIG."
 else
   record FAIL "Entrypoint config" "Config ignored → update entrypoint to honor KATAGO_CONFIG."

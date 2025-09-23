@@ -38,8 +38,9 @@ and indicate the GPU-enabled analysis service is ready.
 
 ## Configuration and models
 
-- `config/analysis.cfg` is mounted read-only into the container. Edit it locally to adjust analysis parameters. The container also
-  forces `allowResignation=false` via `-override-config` so KataGo never resigns during analysis sessions.
+- `config/analysis.cfg` is mounted read-only into the container. `scripts/00_setup_dirs.sh` seeds it from
+  `config/analysis.cfg.template` if the file is missing. Edit it locally to adjust analysis parameters. The container also forces
+  `allowResignation=false` via `-override-config` so KataGo never resigns during analysis sessions.
 - `KATAGO_CONFIG` defaults to `/config/analysis.cfg`; override it in `.env` if you mount the config elsewhere.
 - Models in `models/` are mounted read-only. The runtime expects `/models/latest.bin.gz`; the helper script maintains this symlink so
   you can keep multiple networks side by side.
