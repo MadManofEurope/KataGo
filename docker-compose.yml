@@ -22,6 +22,12 @@ services:
     volumes:
       - ./models:/models:ro
       - ./config/analysis.cfg:/config/analysis.cfg:ro
+    devices:
+      - /dev/fuse:/dev/fuse:rwm
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
     deploy:
       resources:
         reservations:
