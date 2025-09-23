@@ -1,8 +1,8 @@
 # CUDA-enabled KataGo runtime built on a cuDNN 8 base image
-FROM nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu22.04
+FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
 
 ARG KATAGO_VER=v1.16.3
-ARG KATAGO_FLAVOR=cuda12.2-cudnn8-linux-x64
+ARG KATAGO_FLAVOR=cuda12.1-cudnn8.9.7-linux-x64
 WORKDIR /opt/katago
 
 # Install minimal runtime dependencies
