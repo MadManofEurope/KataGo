@@ -13,10 +13,8 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
 # Fetch KataGo release (Linux CUDA build)
 RUN curl -L -o katago.zip \
     "https://github.com/lightvector/KataGo/releases/download/${KATAGO_VER}/katago-${KATAGO_VER}-${KATAGO_FLAVOR}.zip" \
- && unzip katago.zip -d /opt/katago \
- && mv "/opt/katago/katago-${KATAGO_VER}-${KATAGO_FLAVOR}/katago" /opt/katago/katago \
+ && unzip -j katago.zip -d /opt/katago \
  && rm katago.zip \
- && rm -rf "/opt/katago/katago-${KATAGO_VER}-${KATAGO_FLAVOR}" \
  && chmod +x /opt/katago/katago
 
 # Config + entrypoint
