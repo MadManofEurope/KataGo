@@ -7,7 +7,7 @@ WORKDIR /opt/katago
 
 # Minimal deps
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    ca-certificates curl unzip python3-minimal netcat-openbsd \
+    ca-certificates curl unzip python3-minimal netcat-openbsd socat \
  && rm -rf /var/lib/apt/lists/*
 
 # Fetch KataGo release (Linux CUDA build)
