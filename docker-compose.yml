@@ -21,6 +21,10 @@ services:
               count: all
               capabilities: [gpu]
     healthcheck:
+      start_period: 15s
+      interval: 10s
+      timeout: 3s
+      retries: 10
       test:
         - CMD-SHELL
         - >
@@ -28,7 +32,3 @@ services:
           -H 'Content-Type: application/json'
           -d '{"id":"ping","action":"query_version"}'
           >/dev/null
-      interval: 10s
-      timeout: 3s
-      retries: 10
-      start_period: 15s
