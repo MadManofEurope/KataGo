@@ -10,7 +10,7 @@
 ```bash
 cd KataGo
 ./scripts/00_setup_dirs.sh
-./scripts/01_get_model.sh   # follow prompt; keep kata1*.bin.gz name
+./scripts/01_get_model.sh   # downloads the newest kata1 network and verifies gzip integrity
 cp docker/analysis.cfg config/analysis.cfg  # customize as needed
 export IMAGE_TAG=$(git rev-parse --short HEAD)
 docker compose build --no-cache
