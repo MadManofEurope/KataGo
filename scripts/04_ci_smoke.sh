@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if ! command -v docker >/dev/null 2>&1; then
+  echo "Docker CLI not available, skipping KataGo smoke test." >&2
+  exit 0
+fi
+
+if ! docker compose version >/dev/null 2>&1; then
+  echo "Docker Compose plugin not available, skipping KataGo smoke test." >&2
+  exit 0
+fi
+
 cleanup() {
   docker compose down -v
 }
