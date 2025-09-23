@@ -50,8 +50,11 @@ done
 
 rm -f katago
 
-docker build -f Dockerfile.build -t "${IMAGE}" . \
-    --build-arg CUDA_ARCHITECTURES="${cuda_architectures}"
+docker build \
+    -f Dockerfile.build \
+    -t "${IMAGE}" \
+    --build-arg CUDA_ARCHITECTURES="${cuda_architectures}" \
+    .
 
 docker rm -f "${CONTAINER}" >/dev/null 2>&1 || true
 docker create --name "${CONTAINER}" "${IMAGE}"
