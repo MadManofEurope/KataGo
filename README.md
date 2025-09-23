@@ -19,12 +19,10 @@ docker compose logs -f katago
 ./scripts/04_benchmark.sh   # queries the KataGo analysis engine and prints JSON
 ```
 
-To change how many CPU threads KataGo uses for analysis, export `KATAGO_ANALYSIS_THREADS` before starting the container, for example:
-
-```bash
-export KATAGO_ANALYSIS_THREADS=16
-docker compose up -d
-```
+To override how many CPU threads KataGo uses for analysis, export `KATAGO_ANALYSIS_THREADS` before starting the container. For
+example, setting `export KATAGO_ANALYSIS_THREADS=16` and then running `docker compose up -d` asks the entrypoint to pass
+`numAnalysisThreads=16` to KataGo. If you leave `KATAGO_ANALYSIS_THREADS` unset (or explicitly set it to an empty string), the
+entrypoint omits the override and KataGo honors the value already defined in `config/analysis.cfg`.
 
 You can also override `analysis.cfg` values without editing the file by exporting `KATAGO_VISITS` (maps to `maxVisits`) or
 `KATAGO_SEARCH_THREADS` (maps to `numSearchThreadsPerAnalysisThread`). When these environment variables are set to positive integers,
