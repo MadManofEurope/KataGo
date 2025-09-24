@@ -10,4 +10,8 @@ cd "${SCRIPT_DIR}/.."
 GIT_SHA_SHORT="$(git rev-parse --short HEAD 2>/dev/null || echo local)"
 export GIT_SHA_SHORT
 
-docker compose build --no-cache
+echo "Refreshing KataGo binary and configuration..."
+"${SCRIPT_DIR}/native_install.sh"
+
+echo "Refreshing KataGo model bundle..."
+"${SCRIPT_DIR}/01_get_model.sh"
