@@ -25,17 +25,20 @@ jobs:
       - name: Shellcheck scripts
         run: shellcheck scripts/*.sh
 
-      - name: Bootstrap KataGo (mock engine)
+      - name: Bootstrap and self-test (mock assets)
         env:
           CI_MOCK_ENGINE: "1"
-        run: ./scripts/native_install.sh
-
-      - name: Download kata1 model
-        env:
           CI_MOCK_MODEL: "1"
-        run: ./scripts/01_get_model.sh
-
-      - name: Run self-test
-        env:
-          CI_MOCK_ENGINE: "1"
-        run: python3 serve.py --selftest
+        run: |
+          set -euo pipefail
+          ./scripts/bootstrap.sh &
+          BOOT_PID=$!
+          cleanup() {
+            if kill -0 "$BOOT_PID" >/dev/null 2>&1; then
+              kill "$BOOT_PID" >/dev/null 2>&1 || true
+              wait "$BOOT_PID" >/dev/null 2>&1 || true
+            fi
+          }
+          trap cleanup EXIT
+          sleep 5
+          python3 serve.py --selftest

@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/check_tree.sh
+source "${SCRIPT_DIR}/check_tree.sh"
+
+ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 BIN_DIR="${ROOT_DIR}/.bin"
 VENV_DIR="${ROOT_DIR}/.venv"
 KATAGO_BIN="${BIN_DIR}/katago"
