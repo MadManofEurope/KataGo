@@ -14,15 +14,23 @@ from dataclasses import dataclass
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 
 REPO_ROOT = Path(__file__).resolve().parent
 INSTALL_COMMAND = "./scripts/native_install.sh"
 MODEL_COMMAND = "./scripts/01_get_model.sh"
-DEFAULT_KATAGO = REPO_ROOT / ".bin/katago"
-DEFAULT_MODEL = REPO_ROOT / "models/latest.bin.gz"
-DEFAULT_CONFIG = Path(os.environ.get("KATAGO_CONFIG", REPO_ROOT / "config/analysis.cfg"))
+
+
+def resolve_default(env_name: str, fallback: str) -> Path:
+    value = os.environ.get(env_name)
+    if value:
+        candidate = Path(os.path.expanduser(value))
+    else:
+        candidate = Path(os.path.expanduser(fallback))
+    if not candidate.is_absolute():
+        candidate = REPO_ROOT / candidate
+    return candidate
 
 
 @dataclass
@@ -168,12 +176,31 @@ class KataGoRequestHandler(BaseHTTPRequestHandler):
 
 
 def parse_args() -> argparse.Namespace:
+    katago_default = resolve_default("KATAGO", ".bin/katago")
+    model_default = resolve_default("MODEL", "models/latest.bin.gz")
+    config_default = resolve_default("KATAGO_CONFIG", "config/analysis.cfg")
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=2388)
-    parser.add_argument("--katago", type=Path, default=DEFAULT_KATAGO)
-    parser.add_argument("--model", type=Path, default=DEFAULT_MODEL)
-    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
+    parser.add_argument(
+        "--katago",
+        type=Path,
+        default=None,
+        help=f"Path to the KataGo binary (default: {katago_default})",
+    )
+    parser.add_argument(
+        "--model",
+        type=Path,
+        default=None,
+        help=f"Path to the KataGo model file (default: {model_default})",
+    )
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help=f"Path to KataGo analysis config (default: {config_default})",
+    )
     parser.add_argument("--selftest", action="store_true", help="Run a query_version check and exit")
     return parser.parse_args()
 
@@ -194,6 +221,12 @@ def run_server(args: argparse.Namespace, engine: KataGoEngine) -> None:
     finally:
         engine.terminate()
         server.server_close()
+
+
+def resolve_path_argument(arg: Optional[Path], env_name: str, fallback: str) -> Path:
+    if arg is not None:
+        return Path(os.path.expanduser(str(arg)))
+    return resolve_default(env_name, fallback)
 
 
 def collect_environment_errors(katago: Path, model: Path, config: Path) -> List[str]:
@@ -253,47 +286,19 @@ def launch_engine(cfg: EngineConfig) -> Optional[KataGoEngine]:
         return None
 
 
-def run_script(command: str, env: Optional[Dict[str, str]] = None) -> None:
-    subprocess.run(
-        [command],
-        check=True,
-        cwd=REPO_ROOT,
-        env=env,
-    )
-
-
-def bootstrap_mock_assets() -> bool:
-    env = os.environ.copy()
-    env.setdefault("CI_MOCK_ENGINE", "1")
-    env.setdefault("CI_MOCK_MODEL", "1")
-    try:
-        print("[selftest] Bootstrapping mock KataGo binary...", file=sys.stderr)
-        run_script(INSTALL_COMMAND, env=env)
-        print("[selftest] Bootstrapping mock KataGo model...", file=sys.stderr)
-        run_script(MODEL_COMMAND, env=env)
-    except (OSError, subprocess.CalledProcessError) as exc:
-        print(f"Failed to bootstrap mock assets: {exc}", file=sys.stderr)
+def ensure_environment(cfg: EngineConfig) -> bool:
+    errors = collect_environment_errors(cfg.katago, cfg.model, cfg.config)
+    if errors:
+        print_environment_errors(errors)
         return False
     return True
 
 
-def ensure_environment(cfg: EngineConfig, allow_bootstrap: bool = False) -> bool:
-    errors = collect_environment_errors(cfg.katago, cfg.model, cfg.config)
-    if not errors:
-        return True
-    if allow_bootstrap:
-        print("[selftest] Missing KataGo assets; attempting mock bootstrap...", file=sys.stderr)
-        if bootstrap_mock_assets():
-            errors = collect_environment_errors(cfg.katago, cfg.model, cfg.config)
-            if not errors:
-                return True
-    print_environment_errors(errors)
-    return False
-
-
 def run_selftest(cfg: EngineConfig) -> int:
-    if not ensure_environment(cfg, allow_bootstrap=True):
-        return 1
+    errors = collect_environment_errors(cfg.katago, cfg.model, cfg.config)
+    if errors:
+        print_environment_errors(errors)
+        return 2
     engine = launch_engine(cfg)
     if engine is None:
         return 1
@@ -314,7 +319,11 @@ def run_selftest(cfg: EngineConfig) -> int:
 
 def main() -> int:
     args = parse_args()
-    cfg = EngineConfig(katago=args.katago, model=args.model, config=args.config)
+    cfg = EngineConfig(
+        katago=resolve_path_argument(args.katago, "KATAGO", ".bin/katago"),
+        model=resolve_path_argument(args.model, "MODEL", "models/latest.bin.gz"),
+        config=resolve_path_argument(args.config, "KATAGO_CONFIG", "config/analysis.cfg"),
+    )
     if args.selftest:
         return run_selftest(cfg)
     if not ensure_environment(cfg):

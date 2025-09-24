@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/check_tree.sh
+source "${SCRIPT_DIR}/check_tree.sh"
+
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 mkdir -p "${ROOT_DIR}/config" "${ROOT_DIR}/models"
