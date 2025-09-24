@@ -137,7 +137,8 @@ determine_zip_url() {
 }
 
 install_appimage() {
-  local arch="$(uname -m 2>/dev/null || echo unknown)"
+  local arch
+  arch="$(uname -m 2>/dev/null || echo unknown)"
   if [[ "${arch}" != "x86_64" && "${arch}" != "amd64" ]]; then
     echo "Host architecture ${arch} is not supported by the KataGo AppImage." >&2
     return 1
