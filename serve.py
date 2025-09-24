@@ -17,6 +17,14 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 
+REPO_ROOT = Path(__file__).resolve().parent
+INSTALL_COMMAND = "./scripts/native_install.sh"
+MODEL_COMMAND = "./scripts/01_get_model.sh"
+DEFAULT_KATAGO = REPO_ROOT / ".bin/katago"
+DEFAULT_MODEL = REPO_ROOT / "models/latest.bin.gz"
+DEFAULT_CONFIG = Path(os.environ.get("KATAGO_CONFIG", REPO_ROOT / "config/analysis.cfg"))
+
+
 @dataclass
 class EngineConfig:
     katago: Path
@@ -160,17 +168,12 @@ class KataGoRequestHandler(BaseHTTPRequestHandler):
 
 
 def parse_args() -> argparse.Namespace:
-    repo_root = Path(__file__).resolve().parent
-    default_katago = repo_root / ".bin/katago"
-    default_model = repo_root / "models/latest.bin.gz"
-    default_config = Path(os.environ.get("KATAGO_CONFIG", repo_root / "config/analysis.cfg"))
-
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=2388)
-    parser.add_argument("--katago", type=Path, default=default_katago)
-    parser.add_argument("--model", type=Path, default=default_model)
-    parser.add_argument("--config", type=Path, default=default_config)
+    parser.add_argument("--katago", type=Path, default=DEFAULT_KATAGO)
+    parser.add_argument("--model", type=Path, default=DEFAULT_MODEL)
+    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     parser.add_argument("--selftest", action="store_true", help="Run a query_version check and exit")
     return parser.parse_args()
 
@@ -197,35 +200,39 @@ def collect_environment_errors(katago: Path, model: Path, config: Path) -> List[
     errors: List[str] = []
     if not katago.exists():
         errors.append(
-            f"Missing KataGo binary at {katago}. Run ./scripts/native_install.sh to install it."
+            f"Missing KataGo binary at {katago}. Run {INSTALL_COMMAND} to install it."
+        )
+    elif katago.is_dir():
+        errors.append(
+            f"Expected a KataGo executable at {katago}, but found a directory. Remove it and run {INSTALL_COMMAND}."
         )
     elif not os.access(katago, os.X_OK):
         errors.append(
-            f"KataGo binary at {katago} is not executable. Re-run ./scripts/native_install.sh."
+            f"KataGo binary at {katago} is not executable. Re-run {INSTALL_COMMAND}."
         )
     if not model.exists():
         errors.append(
-            f"Missing model file at {model}. Run ./scripts/01_get_model.sh after ./scripts/native_install.sh."
+            f"Missing model file at {model}. Run {MODEL_COMMAND} after {INSTALL_COMMAND}."
         )
     elif not model.is_file():
         errors.append(
-            f"KataGo model at {model} is not a regular file. Re-run ./scripts/01_get_model.sh after ./scripts/native_install.sh."
+            f"KataGo model at {model} is not a regular file. Re-run {MODEL_COMMAND} after {INSTALL_COMMAND}."
         )
     elif not os.access(model, os.R_OK):
         errors.append(
-            f"KataGo model at {model} is not readable. Fix permissions or rerun ./scripts/01_get_model.sh."
+            f"KataGo model at {model} is not readable. Fix permissions or rerun {MODEL_COMMAND}."
         )
     if not config.exists():
         errors.append(
-            f"Missing config file at {config}. Run ./scripts/native_install.sh to generate it."
+            f"Missing config file at {config}. Run {INSTALL_COMMAND} to generate it."
         )
     elif not config.is_file():
         errors.append(
-            f"Expected a config file at {config}. Run ./scripts/native_install.sh to restore it."
+            f"Expected a config file at {config}. Run {INSTALL_COMMAND} to restore it."
         )
     elif not os.access(config, os.R_OK):
         errors.append(
-            f"Config file at {config} is not readable. Fix permissions or rerun ./scripts/native_install.sh."
+            f"Config file at {config} is not readable. Fix permissions or rerun {INSTALL_COMMAND}."
         )
     return errors
 
