@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import signal
+import subprocess
 import sys
 import threading
 from dataclasses import dataclass
@@ -14,7 +15,6 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Dict, Optional
-import subprocess
 
 
 @dataclass
@@ -33,20 +33,6 @@ class KataGoEngine:
         self._proc = self._launch()
 
     def _launch(self) -> subprocess.Popen:
-        if not self._cfg.katago.exists():
-            raise FileNotFoundError(
-                f"KataGo binary not found at {self._cfg.katago}. Run native_install_plucky.sh."
-            )
-        if not os.access(self._cfg.katago, os.X_OK):
-            raise PermissionError(f"KataGo binary at {self._cfg.katago} is not executable.")
-        if not self._cfg.model.exists():
-            raise FileNotFoundError(
-                f"Model file not found at {self._cfg.model}. Run scripts/01_get_model.sh."
-            )
-        if not self._cfg.config.exists():
-            raise FileNotFoundError(
-                f"Config file not found at {self._cfg.config}. Run scripts/00_setup_dirs.sh."
-            )
         cmd = [
             str(self._cfg.katago),
             "analysis",
@@ -209,19 +195,50 @@ def run_server(args: argparse.Namespace, engine: KataGoEngine) -> None:
 
 def run_selftest(engine: KataGoEngine) -> int:
     try:
-        response_text = engine.query({"id": "selftest", "action": "query_version"})
+        response_text = engine.query({"id": "ping", "action": "query_version"})
+        first_line = next((line for line in response_text.splitlines() if line.strip()), "")
+        if not first_line:
+            raise RuntimeError("KataGo returned an empty response")
+        json.loads(first_line)
     except Exception as exc:  # noqa: BLE001
         print(f"Selftest failed: {exc}", file=sys.stderr)
         engine.terminate()
         return 1
     engine.terminate()
-    print(response_text.strip())
+    print(first_line)
     return 0
+
+
+def validate_environment(katago: Path, model: Path, config: Path) -> bool:
+    errors: list[str] = []
+    if not katago.exists():
+        errors.append(
+            f"Missing KataGo binary at {katago}. Run ./scripts/native_install.sh to install it."
+        )
+    elif not os.access(katago, os.X_OK):
+        errors.append(
+            f"KataGo binary at {katago} is not executable. Re-run ./scripts/native_install.sh."
+        )
+    if not model.exists():
+        errors.append(
+            f"Missing model file at {model}. Run ./scripts/01_get_model.sh after ./scripts/native_install.sh."
+        )
+    if not config.exists():
+        errors.append(
+            f"Missing config file at {config}. Run ./scripts/native_install.sh to generate it."
+        )
+    if errors:
+        for msg in errors:
+            print(msg, file=sys.stderr)
+        return False
+    return True
 
 
 def main() -> int:
     args = parse_args()
     cfg = EngineConfig(katago=args.katago, model=args.model, config=args.config)
+    if not validate_environment(cfg.katago, cfg.model, cfg.config):
+        return 1
     try:
         engine = KataGoEngine(cfg)
     except (FileNotFoundError, PermissionError) as exc:
