@@ -19,6 +19,16 @@ require_cmd gzip
 
 mkdir -p "${MODELS_DIR}"
 
+if [[ "${CI_MOCK_MODEL:-0}" == "1" ]]; then
+  mock_model="${MODELS_DIR}/kata1-mock.bin.gz"
+  tmp_mock="${mock_model}.tmp"
+  printf 'mock-katago-model\n' | gzip -c >"${tmp_mock}"
+  mv "${tmp_mock}" "${mock_model}"
+  ln -sfn "$(basename "${mock_model}")" "${MODELS_DIR}/latest.bin.gz"
+  echo "Using CI mock KataGo model" >&2
+  exit 0
+fi
+
 find_existing_model() {
   find "${MODELS_DIR}" -maxdepth 1 -type f -name '*.bin.gz' ! -name 'latest.bin.gz' | sort | head -n1
 }

@@ -207,9 +207,25 @@ def collect_environment_errors(katago: Path, model: Path, config: Path) -> List[
         errors.append(
             f"Missing model file at {model}. Run ./scripts/01_get_model.sh after ./scripts/native_install.sh."
         )
+    elif not model.is_file():
+        errors.append(
+            f"KataGo model at {model} is not a regular file. Re-run ./scripts/01_get_model.sh after ./scripts/native_install.sh."
+        )
+    elif not os.access(model, os.R_OK):
+        errors.append(
+            f"KataGo model at {model} is not readable. Fix permissions or rerun ./scripts/01_get_model.sh."
+        )
     if not config.exists():
         errors.append(
             f"Missing config file at {config}. Run ./scripts/native_install.sh to generate it."
+        )
+    elif not config.is_file():
+        errors.append(
+            f"Expected a config file at {config}. Run ./scripts/native_install.sh to restore it."
+        )
+    elif not os.access(config, os.R_OK):
+        errors.append(
+            f"Config file at {config} is not readable. Fix permissions or rerun ./scripts/native_install.sh."
         )
     return errors
 
