@@ -10,8 +10,9 @@ CONFIG_PATH="${CONFIG_DIR}/analysis.cfg"
 RELEASE_TAG="v1.16.3"
 RELEASE_API_URL="https://api.github.com/repos/lightvector/KataGo/releases/tags/${RELEASE_TAG}"
 ZIP_URL_OVERRIDE="${KATAGO_RELEASE_URL:-}"
-APPIMAGE_PATH="${BIN_DIR}/katago"
-EXTRACTED_BIN="${BIN_DIR}/katago.bin"
+APPIMAGE_NAME="katago-${RELEASE_TAG}.AppImage"
+APPIMAGE_PATH="${BIN_DIR}/${APPIMAGE_NAME}"
+KATAGO_BIN="${BIN_DIR}/katago"
 
 require_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -34,7 +35,7 @@ if [[ -f "${CONFIG_TEMPLATE}" && ! -f "${CONFIG_PATH}" ]]; then
 fi
 
 if [[ "${CI_MOCK_ENGINE:-0}" == "1" ]]; then
-  cat >"${APPIMAGE_PATH}" <<'PY'
+  cat >"${KATAGO_BIN}" <<'PY'
 #!/usr/bin/env python3
 import json
 import sys
@@ -73,9 +74,9 @@ def main() -> int:
 if __name__ == "__main__":
     sys.exit(main())
 PY
-  chmod +x "${APPIMAGE_PATH}"
+  chmod +x "${KATAGO_BIN}"
   echo "Using CI mock KataGo engine" >&2
-  "${APPIMAGE_PATH}" --version
+  "${KATAGO_BIN}" --version
   exit 0
 fi
 
@@ -165,19 +166,32 @@ install_appimage() {
 }
 
 extract_appimage() {
-  if [[ -L "${APPIMAGE_PATH}" ]]; then
-    return
+  if [[ ! -x "${APPIMAGE_PATH}" ]]; then
+    echo "KataGo AppImage missing or not executable at ${APPIMAGE_PATH}." >&2
+    echo "Remove ${BIN_DIR} and rerun ./scripts/native_install.sh." >&2
+    exit 1
   fi
-  pushd "${ROOT_DIR}" >/dev/null
-  "${APPIMAGE_PATH}" --appimage-extract || true
-  if [[ -f "squashfs-root/usr/bin/katago" ]]; then
-    mv -f "squashfs-root/usr/bin/katago" "${EXTRACTED_BIN}"
-    chmod +x "${EXTRACTED_BIN}"
-    rm -rf "squashfs-root"
-    ln -sfn "katago.bin" "${APPIMAGE_PATH}"
+
+  rm -f "${KATAGO_BIN}"
+  rm -rf "${BIN_DIR}/squashfs-root"
+
+  pushd "${BIN_DIR}" >/dev/null
+  "./${APPIMAGE_NAME}" --appimage-extract >/dev/null 2>&1 || true
+  if [[ ! -f "squashfs-root/usr/bin/katago" ]]; then
+    echo "Failed to extract KataGo binary from ${APPIMAGE_PATH}." >&2
+    echo "Remove ${BIN_DIR} and rerun ./scripts/native_install.sh." >&2
+    popd >/dev/null
+    exit 1
   fi
+  mv -f "squashfs-root/usr/bin/katago" "${KATAGO_BIN}"
+  chmod +x "${KATAGO_BIN}"
+  rm -rf "squashfs-root"
   popd >/dev/null
 }
+
+if [[ -L "${KATAGO_BIN}" ]]; then
+  rm -f "${KATAGO_BIN}"
+fi
 
 if [[ ! -e "${APPIMAGE_PATH}" ]]; then
   install_appimage
@@ -189,24 +203,18 @@ fi
 
 extract_appimage
 
-if [[ ! -x "${APPIMAGE_PATH}" ]]; then
-  echo "KataGo binary at ${APPIMAGE_PATH} is not executable after extraction." >&2
+if [[ ! -x "${KATAGO_BIN}" ]]; then
+  echo "KataGo binary at ${KATAGO_BIN} is not executable after extraction." >&2
   exit 1
 fi
 
-if [[ -L "${APPIMAGE_PATH}" && ! -x "${EXTRACTED_BIN}" ]]; then
-  echo "Extraction did not produce ${EXTRACTED_BIN}." >&2
+if ! "${KATAGO_BIN}" --help >/dev/null 2>&1; then
+  echo "KataGo binary at ${KATAGO_BIN} failed to respond to --help." >&2
   echo "Remove ${BIN_DIR} and rerun ./scripts/native_install.sh." >&2
   exit 1
 fi
 
-if ! "${APPIMAGE_PATH}" --help >/dev/null 2>&1; then
-  echo "KataGo binary at ${APPIMAGE_PATH} failed to respond to --help." >&2
-  echo "Remove ${BIN_DIR} and rerun ./scripts/native_install.sh." >&2
-  exit 1
-fi
-
-if ! "${APPIMAGE_PATH}" --version; then
-  echo "KataGo binary at ${APPIMAGE_PATH} failed to run. Try re-running ./scripts/native_install.sh." >&2
+if ! "${KATAGO_BIN}" --version; then
+  echo "KataGo binary at ${KATAGO_BIN} failed to run. Try re-running ./scripts/native_install.sh." >&2
   exit 1
 fi

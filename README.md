@@ -22,12 +22,10 @@ extract it once to avoid FUSE at runtime, and expose the familiar HTTP JSON API 
 
 ```bash
 git clone -b 2.3 https://github.com/MadManofEurope/KataGo && cd KataGo
-./scripts/native_install.sh
-./scripts/01_get_model.sh
-./scripts/native_run.sh
+./scripts/native_install.sh && ./scripts/01_get_model.sh && ./scripts/native_run.sh
 ```
 
-`native_install.sh` prepares `.bin/katago`, `config/analysis.cfg`, and supporting directories. `native_run.sh` bootstraps the default kata1 network on first run if `models/latest.bin.gz` is missing. The runner binds to `127.0.0.1:2388` by default.
+`native_install.sh` prepares `.bin/katago`, `config/analysis.cfg`, and supporting directories. `01_get_model.sh` downloads a kata1 network and refreshes `models/latest.bin.gz`. `native_run.sh` launches the service bound to `127.0.0.1:2388`.
 
 ### Health check
 
