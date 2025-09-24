@@ -41,6 +41,10 @@ Successful responses echo the installed KataGo version. To verify the binary wit
 python3 serve.py --selftest
 ```
 
+Running the self-test without prior setup automatically provisions mock binaries and
+models using the CI helper scripts, allowing quick verification without large
+downloads.
+
 ### CI/testing shortcuts
 
 - `CI_MOCK_ENGINE=1 ./scripts/native_install.sh` replaces the real AppImage with a tiny Python stub that implements
