@@ -2,7 +2,11 @@
 # Fetch the latest kata1 network and link it as models/latest.bin.gz.
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./check_tree.sh
+source "${SCRIPT_DIR}/check_tree.sh"
+
+ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 MODELS_DIR="${ROOT_DIR}/models"
 DEFAULT_MODEL_URL="https://media.katagotraining.org/uploaded/networks/models/kata1/kata1-b28c512nbt-s10964269312-d5332792958.bin.gz"
 MODEL_URL="${KATAGO_MODEL_URL:-${1:-${DEFAULT_MODEL_URL}}}"
@@ -79,5 +83,8 @@ if ! model_path="$(validate_model "${existing_model}")"; then
   model_path="$(download_model "${MODEL_URL}")"
 fi
 
-ln -sfn "$(basename "${model_path}")" "${MODELS_DIR}/latest.bin.gz"
+link_path="${MODELS_DIR}/latest.bin.gz"
+tmp_link="${link_path}.tmp"
+ln -sfn "$(basename "${model_path}")" "${tmp_link}"
+mv -f "${tmp_link}" "${link_path}"
 echo "Linked $(basename "${model_path}") to models/latest.bin.gz" >&2

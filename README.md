@@ -21,11 +21,10 @@ extract it once to avoid FUSE at runtime, and expose the familiar HTTP JSON API 
 ## Quickstart (Native on Ubuntu 25.04)
 
 ```bash
-git clone -b 2.3 https://github.com/MadManofEurope/KataGo && cd KataGo
-./scripts/native_install.sh && ./scripts/01_get_model.sh && ./scripts/native_run.sh
+git clone -b 2.3 https://github.com/MadManofEurope/KataGo && cd KataGo && ./scripts/bootstrap.sh
 ```
 
-`native_install.sh` prepares `.bin/katago`, `config/analysis.cfg`, and supporting directories. `01_get_model.sh` downloads a kata1 network and refreshes `models/latest.bin.gz`. `native_run.sh` launches the service bound to `127.0.0.1:2388`.
+`bootstrap.sh` verifies the checkout, installs the KataGo AppImage, downloads a kata1 network, and launches the JSON service bound to `127.0.0.1:2388`. Re-run it at any time to repair dependencies and restart the server.
 
 ### Health check
 
@@ -41,9 +40,7 @@ Successful responses echo the installed KataGo version. To verify the binary wit
 python3 serve.py --selftest
 ```
 
-Running the self-test without prior setup automatically provisions mock binaries and
-models using the CI helper scripts, allowing quick verification without large
-downloads.
+The self-test auto-detects the default `.bin/katago`, `models/latest.bin.gz`, and `config/analysis.cfg` paths. If any asset is missing it exits with status 2 and prints which script to run (`./scripts/native_install.sh` for the binary/config or `./scripts/01_get_model.sh` for the model).
 
 ### CI/testing shortcuts
 
@@ -60,6 +57,14 @@ systemctl --user status katago-json.service
 ```
 
 The service runs from `~/KataGo`, restarts automatically, and can be disabled with `systemctl --user disable --now katago-json.service`.
+
+## Troubleshooting
+
+- `fatal: destination path 'KataGo' already exists and is not an empty directory.` → Move or delete the existing `~/KataGo` folder (or clone elsewhere), then rerun the Quickstart command.
+- `./scripts/native_install.sh: not found` or `./scripts/native_run.sh: not found` → Run `./scripts/check_tree.sh` and follow the printed `git fetch origin && git switch -C 2.3 origin/2.3` instruction to refresh the checkout.
+- `curl 127.0.0.1:2388/query: connection refused` → Start the server with `./scripts/bootstrap.sh` (or rerun it to restart the service).
+- `python3 serve.py --selftest` reports missing files → Rerun the script named in the message (`native_install.sh` for the binary/config or `01_get_model.sh` for the model) and run the self-test again.
+- `systemctl --user status katago-json.service: Unit katago-json.service not found.` → Enable the user service with `./scripts/native_enable_service.sh` before checking the status.
 
 ## Configuration and models
 

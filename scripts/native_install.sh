@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./check_tree.sh
+source "${SCRIPT_DIR}/check_tree.sh"
+
+ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 BIN_DIR="${ROOT_DIR}/.bin"
 MODELS_DIR="${ROOT_DIR}/models"
+LOGS_DIR="${ROOT_DIR}/logs"
 CONFIG_DIR="${ROOT_DIR}/config"
 CONFIG_TEMPLATE="${CONFIG_DIR}/analysis.cfg.template"
 CONFIG_PATH="${CONFIG_DIR}/analysis.cfg"
@@ -28,7 +33,7 @@ if [[ "${CI_MOCK_ENGINE:-0}" != "1" && -z "${ZIP_URL_OVERRIDE}" ]]; then
   require_cmd jq
 fi
 
-mkdir -p "${BIN_DIR}" "${MODELS_DIR}" "${CONFIG_DIR}"
+mkdir -p "${BIN_DIR}" "${MODELS_DIR}" "${CONFIG_DIR}" "${LOGS_DIR}"
 
 if [[ -f "${CONFIG_TEMPLATE}" && ! -f "${CONFIG_PATH}" ]]; then
   cp "${CONFIG_TEMPLATE}" "${CONFIG_PATH}"

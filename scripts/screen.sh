@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./check_tree.sh
+source "${SCRIPT_DIR}/check_tree.sh"
+
 SUMMARY=""
 FAILED=0
 CONFIG_TMP=""
