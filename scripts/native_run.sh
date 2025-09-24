@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 INSTALL_SCRIPT="${ROOT_DIR}/scripts/native_install.sh"
+MODEL_SCRIPT="${ROOT_DIR}/scripts/01_get_model.sh"
 KATAGO_BIN="${ROOT_DIR}/.bin/katago"
 MODEL_PATH="${ROOT_DIR}/models/latest.bin.gz"
 CONFIG_PATH="${KATAGO_CONFIG:-${ROOT_DIR}/config/analysis.cfg}"
@@ -11,19 +12,33 @@ PORT="2388"
 
 "${INSTALL_SCRIPT}"
 
+if [[ ! -f "${MODEL_PATH}" ]]; then
+  "${MODEL_SCRIPT}"
+fi
+
+if [[ ! -f "${CONFIG_PATH}" ]]; then
+  echo "Configuration file not found at ${CONFIG_PATH}." >&2
+  echo "Re-run ./scripts/native_install.sh or set KATAGO_CONFIG to an existing file." >&2
+  exit 1
+fi
+
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 cleanup() {
   if [[ -n "${SERVER_PID:-}" ]] && kill -0 "${SERVER_PID}" >/dev/null 2>&1; then
-    kill "${SERVER_PID}"
-    wait "${SERVER_PID}" || true
+    kill "${SERVER_PID}" >/dev/null 2>&1 || true
+    wait "${SERVER_PID}" 2>/dev/null || true
   fi
 }
 
-trap cleanup INT TERM
-trap 'cleanup; exit' EXIT
+handle_signal() {
+  cleanup
+  exit 0
+}
 
-set +e
+trap handle_signal INT TERM
+trap cleanup EXIT
+
 "${PYTHON_BIN}" "${ROOT_DIR}/serve.py" \
   --host "${HOST}" \
   --port "${PORT}" \
@@ -31,6 +46,5 @@ set +e
   --model "${MODEL_PATH}" \
   --config "${CONFIG_PATH}" &
 SERVER_PID=$!
-set -e
 
 wait "${SERVER_PID}"

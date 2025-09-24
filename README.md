@@ -6,7 +6,7 @@ port 2388.
 
 ## What's new in 2.2
 
-- Native runner: `serve.py` keeps a persistent KataGo analysis subprocess without Docker.
+- Native runner: `serve.py` keeps a persistent KataGo analysis subprocess without Docker and validates prerequisites on startup and self-test.
 - Idempotent installer: `scripts/native_install.sh` fetches v1.16.3, extracts the AppImage, and verifies the binary.
 - Systemd integration: `systemd/user/katago-json.service` and `scripts/native_enable_service.sh` manage the JSON endpoint as a
   user service.
@@ -27,7 +27,7 @@ git clone -b 2.2 https://github.com/MadManofEurope/KataGo && cd KataGo
 ./scripts/native_run.sh
 ```
 
-`native_install.sh` prepares `.bin/katago`, `config/analysis.cfg`, and supporting directories. The runner binds to `127.0.0.1:2388` by default.
+`native_install.sh` prepares `.bin/katago`, `config/analysis.cfg`, and supporting directories. `native_run.sh` will also fetch the default kata1 network on first run if `models/latest.bin.gz` is missing. The runner binds to `127.0.0.1:2388` by default.
 
 ### Health check
 
@@ -56,7 +56,7 @@ The service runs from `~/KataGo`, restarts automatically, and can be disabled wi
 
 - `config/analysis.cfg` is seeded by `scripts/native_install.sh` from `config/analysis.cfg.template`. Update it to suit your analysis
   requirements.
-- `models/latest.bin.gz` is managed by `scripts/01_get_model.sh`, which downloads the latest kata1 network and refreshes the symlink.
+- `models/latest.bin.gz` is managed by `scripts/01_get_model.sh`, which downloads a kata1 network if none exist, validates gzip integrity, and refreshes the symlink. Set `KATAGO_MODEL_URL` to override the default download URL.
 - Set `KATAGO_CONFIG` before starting the runner to override the default configuration path.
 
 ## Why extract the AppImage?
