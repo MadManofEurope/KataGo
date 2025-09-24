@@ -22,6 +22,8 @@ if [[ ! -f "${CONFIG_PATH}" ]]; then
   exit 1
 fi
 
+echo "Using KataGo config: ${CONFIG_PATH}"
+
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 cleanup() {

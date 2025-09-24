@@ -1,16 +1,14 @@
-# KataGo JSON Analysis Service (2.2)
+# KataGo JSON Analysis Service (2.3)
 
 Native KataGo JSON analysis server for Ubuntu 25.04 "Plucky Puffin" hosts with NVIDIA GPUs. The helper scripts download the
 official CUDA 12.5 AppImage for KataGo v1.16.3, extract it once to avoid FUSE at runtime, and expose the familiar HTTP JSON API on
 port 2388.
 
-## What's new in 2.2
+## What's new in 2.3
 
-- Native runner: `serve.py` keeps a persistent KataGo analysis subprocess without Docker and validates prerequisites on startup and self-test.
-- Idempotent installer: `scripts/native_install.sh` fetches v1.16.3, extracts the AppImage, and verifies the binary.
-- Systemd integration: `systemd/user/katago-json.service` and `scripts/native_enable_service.sh` manage the JSON endpoint as a
-  user service.
-- Docker workflow is now deprecated in favor of the native runner for Ubuntu 25.04.
+- Native bootstrap scripts fetch the KataGo AppImage, extract it once to avoid FUSE, and seed `config/analysis.cfg` during installation.
+- `serve.py --selftest` verifies the binary, config, and model paths before running a `query_version` probe.
+- GitHub Actions workflow exercises the bootstrap path with a mocked KataGo binary.
 
 ## Prerequisites
 
@@ -21,18 +19,18 @@ port 2388.
 ## Quickstart (Native on Ubuntu 25.04)
 
 ```bash
-git clone -b 2.2 https://github.com/MadManofEurope/KataGo && cd KataGo
+git clone -b 2.3 https://github.com/MadManofEurope/KataGo && cd KataGo
 ./scripts/native_install.sh
 ./scripts/01_get_model.sh
 ./scripts/native_run.sh
 ```
 
-`native_install.sh` prepares `.bin/katago`, `config/analysis.cfg`, and supporting directories. `native_run.sh` will also fetch the default kata1 network on first run if `models/latest.bin.gz` is missing. The runner binds to `127.0.0.1:2388` by default.
+`native_install.sh` prepares `.bin/katago`, `config/analysis.cfg`, and supporting directories. `native_run.sh` bootstraps the default kata1 network on first run if `models/latest.bin.gz` is missing. The runner binds to `127.0.0.1:2388` by default.
 
 ### Health check
 
 ```bash
-curl -fsS http://127.0.0.1:2388 \
+curl -fsS http://127.0.0.1:2388/query \
   -H 'Content-Type: application/json' \
   -d '{"id":"ping","action":"query_version"}'
 ```
