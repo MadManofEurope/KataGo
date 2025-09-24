@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=./check_tree.sh
+# shellcheck source=scripts/check_tree.sh
 source "${SCRIPT_DIR}/check_tree.sh"
 
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"

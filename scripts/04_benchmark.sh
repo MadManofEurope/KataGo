@@ -2,7 +2,7 @@
 # Smoke test: send one JSON request; expect JSON reply.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=./check_tree.sh
+# shellcheck source=scripts/check_tree.sh
 source "${SCRIPT_DIR}/check_tree.sh"
 PORT="${KATAGO_PORT:-2388}"
 
