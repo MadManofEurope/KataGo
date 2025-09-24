@@ -7,10 +7,9 @@ MODELS_DIR="${ROOT_DIR}/models"
 CONFIG_DIR="${ROOT_DIR}/config"
 CONFIG_TEMPLATE="${CONFIG_DIR}/analysis.cfg.template"
 CONFIG_PATH="${CONFIG_DIR}/analysis.cfg"
-ZIP_URL_DEFAULT="https://github.com/lightvector/KataGo/releases/download/v1.16.3/KataGo-v1.16.3-cuda12.5-linux-x64.zip"
-ZIP_URL="${KATAGO_RELEASE_URL:-${ZIP_URL_DEFAULT}}"
-ZIP_BASENAME="${ZIP_URL##*/}"
-ZIP_PATH="${BIN_DIR}/${ZIP_BASENAME}"
+RELEASE_TAG="v1.16.3"
+RELEASE_API_URL="https://api.github.com/repos/lightvector/KataGo/releases/tags/${RELEASE_TAG}"
+ZIP_URL_OVERRIDE="${KATAGO_RELEASE_URL:-}"
 APPIMAGE_PATH="${BIN_DIR}/katago"
 EXTRACTED_BIN="${BIN_DIR}/katago.bin"
 
@@ -23,6 +22,10 @@ require_cmd() {
 
 require_cmd curl
 require_cmd unzip
+
+if [[ "${CI_MOCK_ENGINE:-0}" != "1" && -z "${ZIP_URL_OVERRIDE}" ]]; then
+  require_cmd jq
+fi
 
 mkdir -p "${BIN_DIR}" "${MODELS_DIR}" "${CONFIG_DIR}"
 
@@ -76,27 +79,89 @@ PY
   exit 0
 fi
 
-install_appimage() {
-  echo "Installing KataGo from ${ZIP_URL} into ${BIN_DIR}" >&2
-
-  if [[ ! -f "${ZIP_PATH}" ]]; then
-    tmp_zip="${ZIP_PATH}.tmp"
-    echo "Downloading KataGo release zip..." >&2
-    curl -fL "${ZIP_URL}" -o "${tmp_zip}"
-    mv "${tmp_zip}" "${ZIP_PATH}"
+determine_zip_url() {
+  if [[ -n "${ZIP_URL_OVERRIDE}" ]]; then
+    printf '%s' "${ZIP_URL_OVERRIDE}"
+    return 0
   fi
 
-  unzip -o "${ZIP_PATH}" -d "${BIN_DIR}" >/dev/null
+  # shellcheck disable=SC2016 # jq script uses regexes and literal $ characters.
+  local jq_filter='
+    [ .assets[]
+      | .browser_download_url
+      | select(test("linux-x64\\.zip$"))
+      | select((test("trt") | not))
+      | { url: ., score: (
+          if test("cuda12\\.8") then 400
+          elif test("cuda12\\.5") then 300
+          elif test("cuda12\\.1") then 200
+          elif test("opencl") or test("cpu") then 100
+          else 0 end
+        ) }
+    ] as $assets
+    | ($assets | map(select(.score > 0))) as $candidates
+    | if ($candidates | length) == 0 then empty else ($candidates | max_by([.score, .url]) | .url) end
+  '
 
-  appimage_source="$(find "${BIN_DIR}" -maxdepth 1 -type f -name '*.AppImage' | head -n1)"
+  local -a curl_args=("-fsSL" "-H" "Accept: application/vnd.github+json")
+  if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+    curl_args+=("-H" "Authorization: Bearer ${GITHUB_TOKEN}")
+    curl_args+=("-H" "X-GitHub-Api-Version: 2022-11-28")
+  fi
+
+  local response
+  if ! response="$(curl "${curl_args[@]}" "${RELEASE_API_URL}")"; then
+    echo "Failed to query GitHub release metadata from ${RELEASE_API_URL}" >&2
+    echo "Set GITHUB_TOKEN to increase the API rate limit or override with KATAGO_RELEASE_URL." >&2
+    exit 1
+  fi
+
+  local asset_url
+  if ! asset_url="$(printf '%s' "${response}" | jq -r "${jq_filter}")"; then
+    echo "Failed to parse GitHub release metadata." >&2
+    exit 1
+  fi
+
+  if [[ -z "${asset_url}" || "${asset_url}" == "null" ]]; then
+    echo "Could not find a Linux x64 KataGo ${RELEASE_TAG} asset from ${RELEASE_API_URL}." >&2
+    echo "Specify KATAGO_RELEASE_URL to override the download target." >&2
+    exit 1
+  fi
+
+  printf '%s' "${asset_url}"
+}
+
+install_appimage() {
+  local zip_url
+  zip_url="$(determine_zip_url)"
+  local zip_basename="${zip_url##*/}"
+  local zip_path="${BIN_DIR}/${zip_basename}"
+
+  echo "Installing KataGo from ${zip_url} into ${BIN_DIR}" >&2
+
+  if [[ ! -f "${zip_path}" ]]; then
+    local tmp_zip="${zip_path}.tmp"
+    echo "Downloading KataGo release zip..." >&2
+    curl -fL "${zip_url}" -o "${tmp_zip}"
+    mv "${tmp_zip}" "${zip_path}"
+  fi
+
+  local unzip_dir
+  unzip_dir="$(mktemp -d)"
+  unzip -qo "${zip_path}" -d "${unzip_dir}"
+
+  local appimage_source
+  appimage_source="$(find "${unzip_dir}" -type f -name '*.AppImage' | head -n1)"
   if [[ -z "${appimage_source}" ]]; then
     echo "Failed to locate KataGo AppImage after unzip. Contents:" >&2
-    ls -al "${BIN_DIR}" >&2
+    find "${unzip_dir}" -maxdepth 2 -type f -print >&2 || true
+    rm -rf "${unzip_dir}"
     exit 1
   fi
 
   mv -f "${appimage_source}" "${APPIMAGE_PATH}"
   chmod +x "${APPIMAGE_PATH}"
+  rm -rf "${unzip_dir}"
 }
 
 extract_appimage() {
@@ -131,6 +196,12 @@ fi
 
 if [[ -L "${APPIMAGE_PATH}" && ! -x "${EXTRACTED_BIN}" ]]; then
   echo "Extraction did not produce ${EXTRACTED_BIN}." >&2
+  echo "Remove ${BIN_DIR} and rerun ./scripts/native_install.sh." >&2
+  exit 1
+fi
+
+if ! "${APPIMAGE_PATH}" --help >/dev/null 2>&1; then
+  echo "KataGo binary at ${APPIMAGE_PATH} failed to respond to --help." >&2
   echo "Remove ${BIN_DIR} and rerun ./scripts/native_install.sh." >&2
   exit 1
 fi

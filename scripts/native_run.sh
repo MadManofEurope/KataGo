@@ -12,8 +12,15 @@ PORT="2388"
 
 "${INSTALL_SCRIPT}"
 
+if ! "${MODEL_SCRIPT}"; then
+  echo "Failed to ensure KataGo model via ${MODEL_SCRIPT}." >&2
+  exit 1
+fi
+
 if [[ ! -f "${MODEL_PATH}" ]]; then
-  "${MODEL_SCRIPT}"
+  echo "KataGo model not found at ${MODEL_PATH} after running ${MODEL_SCRIPT}." >&2
+  echo "Set KATAGO_MODEL_URL or check CI_MOCK_MODEL usage." >&2
+  exit 1
 fi
 
 if [[ ! -f "${CONFIG_PATH}" ]]; then

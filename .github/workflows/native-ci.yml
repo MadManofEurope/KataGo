@@ -17,10 +17,10 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install shellcheck
+      - name: Install tooling
         run: |
           sudo apt-get update
-          sudo apt-get install -y shellcheck
+          sudo apt-get install -y shellcheck jq
 
       - name: Shellcheck scripts
         run: shellcheck scripts/*.sh
@@ -31,6 +31,8 @@ jobs:
         run: ./scripts/native_install.sh
 
       - name: Download kata1 model
+        env:
+          CI_MOCK_MODEL: "1"
         run: ./scripts/01_get_model.sh
 
       - name: Run self-test
