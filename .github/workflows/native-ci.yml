@@ -1,0 +1,39 @@
+name: Native CI
+
+on:
+  push:
+    branches: ["2.2"]
+  pull_request:
+    branches: ["2.2"]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Shellcheck scripts
+        run: |
+          set -euo pipefail
+          mapfile -t scripts_to_check < <(find scripts -name '*.sh' -type f)
+          if [ "${#scripts_to_check[@]}" -gt 0 ]; then
+            shellcheck "${scripts_to_check[@]}"
+          fi
+
+  selftest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Quickstart setup
+        run: |
+          set -euo pipefail
+          ./scripts/00_setup_dirs.sh
+          ./scripts/01_get_model.sh
+          ./scripts/native_install_plucky.sh
+      - name: Serve self-test
+        run: ./serve.py --selftest

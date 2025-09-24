@@ -1,0 +1,12 @@
+[Unit]
+Description=KataGo JSON analysis service
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/KataGo
+ExecStart=%h/KataGo/serve.py
+Restart=always
+
+[Install]
+WantedBy=default.target
