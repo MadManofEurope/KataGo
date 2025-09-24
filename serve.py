@@ -253,10 +253,46 @@ def launch_engine(cfg: EngineConfig) -> Optional[KataGoEngine]:
         return None
 
 
-def run_selftest(cfg: EngineConfig) -> int:
+def run_script(command: str, env: Optional[Dict[str, str]] = None) -> None:
+    subprocess.run(
+        [command],
+        check=True,
+        cwd=REPO_ROOT,
+        env=env,
+    )
+
+
+def bootstrap_mock_assets() -> bool:
+    env = os.environ.copy()
+    env.setdefault("CI_MOCK_ENGINE", "1")
+    env.setdefault("CI_MOCK_MODEL", "1")
+    try:
+        print("[selftest] Bootstrapping mock KataGo binary...", file=sys.stderr)
+        run_script(INSTALL_COMMAND, env=env)
+        print("[selftest] Bootstrapping mock KataGo model...", file=sys.stderr)
+        run_script(MODEL_COMMAND, env=env)
+    except (OSError, subprocess.CalledProcessError) as exc:
+        print(f"Failed to bootstrap mock assets: {exc}", file=sys.stderr)
+        return False
+    return True
+
+
+def ensure_environment(cfg: EngineConfig, allow_bootstrap: bool = False) -> bool:
     errors = collect_environment_errors(cfg.katago, cfg.model, cfg.config)
-    if errors:
-        print_environment_errors(errors)
+    if not errors:
+        return True
+    if allow_bootstrap:
+        print("[selftest] Missing KataGo assets; attempting mock bootstrap...", file=sys.stderr)
+        if bootstrap_mock_assets():
+            errors = collect_environment_errors(cfg.katago, cfg.model, cfg.config)
+            if not errors:
+                return True
+    print_environment_errors(errors)
+    return False
+
+
+def run_selftest(cfg: EngineConfig) -> int:
+    if not ensure_environment(cfg, allow_bootstrap=True):
         return 1
     engine = launch_engine(cfg)
     if engine is None:
@@ -279,12 +315,10 @@ def run_selftest(cfg: EngineConfig) -> int:
 def main() -> int:
     args = parse_args()
     cfg = EngineConfig(katago=args.katago, model=args.model, config=args.config)
-    errors = collect_environment_errors(cfg.katago, cfg.model, cfg.config)
-    if errors:
-        print_environment_errors(errors)
-        return 1
     if args.selftest:
         return run_selftest(cfg)
+    if not ensure_environment(cfg):
+        return 1
     engine = launch_engine(cfg)
     if engine is None:
         return 1
