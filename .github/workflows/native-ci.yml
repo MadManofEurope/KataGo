@@ -1,56 +1,39 @@
-name: native-ci
+name: Native CI
 
 on:
   push:
-    branches:
-      - 2.2
+    branches: ["**"]
   pull_request:
-    branches:
-      - 2.2
 
 jobs:
   native:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
       - name: Install shellcheck
-        run: sudo apt-get update && sudo apt-get install -y shellcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
 
       - name: Shellcheck scripts
         run: shellcheck scripts/*.sh
 
-      - name: Selftest with mock KataGo
-        run: |
-          mkdir -p .bin models config
-          cat > .bin/katago <<'STUB'
-          #!/usr/bin/env bash
-          set -euo pipefail
-          if [[ "${1:-}" == "--version" ]]; then
-            echo "KataGo mock 1.16.3"
-            exit 0
-          fi
-          if [[ "${1:-}" == "--appimage-extract" ]]; then
-            exit 0
-          fi
-          if [[ "${1:-}" == "analysis" ]]; then
-            # Consume parameters: -model <path> -config <path>
-            shift
-            shift || true
-            shift || true
-            shift || true
-            shift || true
-            while IFS= read -r line; do
-              [[ -z "$line" ]] && continue
-              echo '{"id":"ping","version":"mock","isAlive":false}'
-            done
-            exit 0
-          fi
-          echo "Unexpected invocation: $*" >&2
-          exit 1
-STUB
-          chmod +x .bin/katago
-          printf 'cfg' > config/analysis.cfg
-          printf 'model' > models/latest.bin.gz
-          python3 serve.py --selftest --katago ./.bin/katago --model ./models/latest.bin.gz --config ./config/analysis.cfg
+      - name: Bootstrap KataGo (mock engine)
+        env:
+          CI_MOCK_ENGINE: "1"
+        run: ./scripts/native_install.sh
+
+      - name: Download kata1 model
+        run: ./scripts/01_get_model.sh
+
+      - name: Run self-test
+        env:
+          CI_MOCK_ENGINE: "1"
+        run: python3 serve.py --selftest

@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 
 @dataclass
@@ -193,24 +193,8 @@ def run_server(args: argparse.Namespace, engine: KataGoEngine) -> None:
         server.server_close()
 
 
-def run_selftest(engine: KataGoEngine) -> int:
-    try:
-        response_text = engine.query({"id": "ping", "action": "query_version"})
-        first_line = next((line for line in response_text.splitlines() if line.strip()), "")
-        if not first_line:
-            raise RuntimeError("KataGo returned an empty response")
-        json.loads(first_line)
-    except Exception as exc:  # noqa: BLE001
-        print(f"Selftest failed: {exc}", file=sys.stderr)
-        engine.terminate()
-        return 1
-    engine.terminate()
-    print(first_line)
-    return 0
-
-
-def validate_environment(katago: Path, model: Path, config: Path) -> bool:
-    errors: list[str] = []
+def collect_environment_errors(katago: Path, model: Path, config: Path) -> List[str]:
+    errors: List[str] = []
     if not katago.exists():
         errors.append(
             f"Missing KataGo binary at {katago}. Run ./scripts/native_install.sh to install it."
@@ -227,28 +211,60 @@ def validate_environment(katago: Path, model: Path, config: Path) -> bool:
         errors.append(
             f"Missing config file at {config}. Run ./scripts/native_install.sh to generate it."
         )
+    return errors
+
+
+def print_environment_errors(errors: List[str]) -> None:
+    for msg in errors:
+        print(msg, file=sys.stderr)
+
+
+def launch_engine(cfg: EngineConfig) -> Optional[KataGoEngine]:
+    try:
+        return KataGoEngine(cfg)
+    except (FileNotFoundError, PermissionError) as exc:
+        print(f"Failed to launch KataGo: {exc}", file=sys.stderr)
+        return None
+    except Exception as exc:  # noqa: BLE001
+        print(f"Failed to launch KataGo: {exc}", file=sys.stderr)
+        return None
+
+
+def run_selftest(cfg: EngineConfig) -> int:
+    errors = collect_environment_errors(cfg.katago, cfg.model, cfg.config)
     if errors:
-        for msg in errors:
-            print(msg, file=sys.stderr)
-        return False
-    return True
+        print_environment_errors(errors)
+        return 1
+    engine = launch_engine(cfg)
+    if engine is None:
+        return 1
+    try:
+        response_text = engine.query({"id": "ping", "action": "query_version"})
+        first_line = next((line for line in response_text.splitlines() if line.strip()), "")
+        if not first_line:
+            raise RuntimeError("KataGo returned an empty response")
+        json.loads(first_line)
+    except Exception as exc:  # noqa: BLE001
+        print(f"Selftest failed: {exc}", file=sys.stderr)
+        return 1
+    finally:
+        engine.terminate()
+    print(first_line)
+    return 0
 
 
 def main() -> int:
     args = parse_args()
     cfg = EngineConfig(katago=args.katago, model=args.model, config=args.config)
-    if not validate_environment(cfg.katago, cfg.model, cfg.config):
-        return 1
-    try:
-        engine = KataGoEngine(cfg)
-    except (FileNotFoundError, PermissionError) as exc:
-        print(f"Failed to launch KataGo: {exc}", file=sys.stderr)
-        return 1
-    except Exception as exc:  # noqa: BLE001
-        print(f"Failed to launch KataGo: {exc}", file=sys.stderr)
+    errors = collect_environment_errors(cfg.katago, cfg.model, cfg.config)
+    if errors:
+        print_environment_errors(errors)
         return 1
     if args.selftest:
-        return run_selftest(engine)
+        return run_selftest(cfg)
+    engine = launch_engine(cfg)
+    if engine is None:
+        return 1
     run_server(args, engine)
     return 0
 
