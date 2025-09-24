@@ -1,64 +1,67 @@
-# KataGo JSON Analysis Service (2.1)
+# KataGo JSON Analysis Service (2.2)
 
-Dockerized KataGo JSON analysis server tuned for Ubuntu 24.04 hosts with NVIDIA GPUs. The runtime image is based on
-`nvidia/cuda:12.5.1-runtime-ubuntu24.04`, downloads the official CUDA 12.5 build of KataGo v1.16.3, and exposes the
-JSON API on port 2388.
+Native KataGo JSON analysis server for Ubuntu 25.04 "Plucky Puffin" hosts with NVIDIA GPUs. The helper scripts download the
+official CUDA 12.5 AppImage for KataGo v1.16.3, extract it once to avoid FUSE at runtime, and expose the familiar HTTP JSON API on
+port 2388.
 
-## What's new in 2.1
+## What's new in 2.2
 
-- Local-first Docker Compose workflow that always builds the image from source before running.
-- Host-mounted configuration respected via `${KATAGO_CONFIG:-/config/analysis.cfg}` so local edits take effect immediately.
-- Compose GPU reservation stanza requests all NVIDIA GPUs using the standard `deploy.resources.reservations.devices` block.
-- Helper scripts are idempotent and safe to re-run; they create directories, refresh models, rebuild images, and verify the
-  JSON endpoint automatically.
+- Native runner: `serve.py` keeps a persistent KataGo analysis subprocess without Docker.
+- Idempotent installer: `scripts/native_install_plucky.sh` fetches v1.16.3, extracts the AppImage, and verifies the binary.
+- Systemd integration: `systemd/user/katago-json.service` and `scripts/native_enable_service.sh` manage the JSON endpoint as a
+  user service.
+- Docker workflow is now deprecated in favor of the native runner for Ubuntu 25.04.
 
 ## Prerequisites
 
-- [Docker](https://docs.docker.com/get-docker/)
-- [Docker Compose v2](https://docs.docker.com/compose/install/)
-- NVIDIA GPU driver compatible with CUDA 12.5 (for example, driver 550 or newer)
-- [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
-- Enable GPU access for Compose per Docker's guidance: [Use GPUs with Docker Compose](https://docs.docker.com/compose/gpu-support/)
+- Ubuntu 25.04 with Python 3.12+
+- NVIDIA GPU driver compatible with CUDA 12.5 (driver 550 or newer is recommended)
+- `curl`, `unzip`, and `systemd --user` support
 
-## Quickstart
+## Quickstart (Native on Ubuntu 25.04)
 
 ```bash
-cd KataGo
-./scripts/00_setup_dirs.sh            # creates config/ and models/; copies config/analysis.cfg if missing
-./scripts/01_get_model.sh              # downloads the newest kata1 network and links models/latest.bin.gz
-./scripts/02_build.sh                  # builds katago-json:${GIT_SHA_SHORT:-local}
-./scripts/03_run.sh                    # launches the JSON analysis service and waits for health
-curl -fsS http://127.0.0.1:2388 \
-  -H 'Content-Type: application/json' \
-  -d '{"id":"ping","action":"query_version"}' | python3 -m json.tool
+git clone -b 2.2 https://github.com/MadManofEurope/KataGo && cd KataGo
+./scripts/00_setup_dirs.sh
+./scripts/01_get_model.sh
+./scripts/native_install_plucky.sh
+./scripts/native_run.sh
 ```
 
-The final `curl` command is the same request used by the container healthcheck. Successful responses include the KataGo version
-and indicate the GPU-enabled analysis service is ready.
+The runner binds to `127.0.0.1:2388` by default. Adjust `KATAGO_CONFIG` to point at a custom configuration file if desired.
+
+### Health check
+
+```bash
+curl -fsS http://127.0.0.1:2388 \
+  -H 'Content-Type: application/json' \
+  -d '{"id":"ping","action":"query_version"}'
+```
+
+Successful responses echo the installed KataGo version. To verify the binary without launching the server, run `./serve.py --selftest`.
+
+### Optional: enable as a user service
+
+```bash
+./scripts/native_enable_service.sh
+systemctl --user status katago-json.service
+```
+
+The service runs from `~/KataGo`, restarts automatically, and can be disabled with `systemctl --user disable --now katago-json.service`.
 
 ## Configuration and models
 
-- `config/analysis.cfg` is mounted read-only into the container. `scripts/00_setup_dirs.sh` seeds it from
-  `config/analysis.cfg.template` if the file is missing. Edit it locally to adjust analysis parameters. The container also forces
-  `allowResignation=false` via `-override-config` so KataGo never resigns during analysis sessions.
-- `KATAGO_CONFIG` defaults to `/config/analysis.cfg`; override it in `.env` if you mount the config elsewhere.
-- Models in `models/` are mounted read-only. The runtime expects `/models/latest.bin.gz`; the helper script maintains this symlink so
-  you can keep multiple networks side by side.
+- `config/analysis.cfg` is seeded by `scripts/00_setup_dirs.sh` from `config/analysis.cfg.template`. Update it to suit your analysis
+  requirements.
+- `models/latest.bin.gz` is managed by `scripts/01_get_model.sh`, which downloads the latest kata1 network and refreshes the symlink.
+- Set `KATAGO_CONFIG` before starting the runner to override the default configuration path.
 
-## Compose details
+## Why extract the AppImage?
 
-`docker-compose.yml` builds the image locally (`katago-json:${GIT_SHA_SHORT:-local}`), publishes port `2388`, mounts the configuration and
-models directories read-only, and reserves all NVIDIA GPUs using the Compose `deploy.resources.reservations.devices` stanza so the
-container healthcheck posts `query_version` to the JSON endpoint to verify readiness.
-
-## Troubleshooting
-
-- If the Docker build fails immediately at the `FROM` instruction, verify that `nvidia/cuda:12.5.1-runtime-ubuntu24.04` still
-  exists on Docker Hub and adjust the tag if NVIDIA republishes it under a different name.
+KataGo's Linux releases ship as AppImages. Extracting the AppImage at install time removes the runtime FUSE requirement, so the
+native runner works on minimal Ubuntu installations without extra kernel modules or elevated privileges.
 
 ## References
 
 - [KataGo releases](https://github.com/lightvector/KataGo/releases)
-- [CUDA 12.5.1 runtime Ubuntu 24.04 tag](https://hub.docker.com/r/nvidia/cuda/tags?name=12.5.1-runtime-ubuntu24.04)
-- [Docker: Use GPUs with Compose](https://docs.docker.com/compose/gpu-support/)
-- [NVIDIA Container Toolkit install guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
+- [Ubuntu 25.04 (Plucky Puffin)](https://discourse.ubuntu.com/t/plucky-puffin-release-notes/)

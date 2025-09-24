@@ -1,55 +1,60 @@
 #!/usr/bin/env python3
-"""Expose KataGo's JSON analysis engine over TCP/HTTP."""
+"""Expose KataGo's JSON analysis engine over HTTP."""
+
+from __future__ import annotations
 
 import argparse
 import json
-import logging
-import socketserver
-import subprocess
+import os
+import signal
 import sys
 import threading
-from typing import List
-
-LOG = logging.getLogger("katago-proxy")
-
-
-def build_command(args: argparse.Namespace) -> List[str]:
-    cmd: List[str] = [
-        args.katago,
-        "analysis",
-        "-model",
-        args.model,
-        "-config",
-        args.config,
-    ]
-    for override in args.override_config:
-        cmd.extend(["-override-config", override])
-    return cmd
+from dataclasses import dataclass
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import Dict, Optional
+import subprocess
 
 
-class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
-    allow_reuse_address = True
+@dataclass
+class EngineConfig:
+    katago: Path
+    model: Path
+    config: Path
 
-    def __init__(self, server_address, handler_class, base_cmd: List[str]):
-        super().__init__(server_address, handler_class)
-        self.base_cmd = list(base_cmd)
 
+class KataGoEngine:
+    """Manage a persistent KataGo analysis subprocess."""
 
-class KataGoRequestHandler(socketserver.StreamRequestHandler):
-    def handle(self) -> None:  # type: ignore[override]
-        try:
-            # Peek without consuming to decide if this is HTTP or raw JSON.
-            initial = self.rfile.peek(4)
-        except AttributeError:
-            initial = self.rfile.read(0)
-        if initial and initial.startswith((b"POST", b"GET")):
-            self._handle_http()
-        else:
-            self._handle_stream()
+    def __init__(self, cfg: EngineConfig) -> None:
+        self._cfg = cfg
+        self._lock = threading.Lock()
+        self._proc = self._launch()
 
-    def _spawn_katago(self) -> subprocess.Popen:
-        cmd = list(self.server.base_cmd)
-        LOG.debug("Launching KataGo: %s", " ".join(cmd))
+    def _launch(self) -> subprocess.Popen:
+        if not self._cfg.katago.exists():
+            raise FileNotFoundError(
+                f"KataGo binary not found at {self._cfg.katago}. Run native_install_plucky.sh."
+            )
+        if not os.access(self._cfg.katago, os.X_OK):
+            raise PermissionError(f"KataGo binary at {self._cfg.katago} is not executable.")
+        if not self._cfg.model.exists():
+            raise FileNotFoundError(
+                f"Model file not found at {self._cfg.model}. Run scripts/01_get_model.sh."
+            )
+        if not self._cfg.config.exists():
+            raise FileNotFoundError(
+                f"Config file not found at {self._cfg.config}. Run scripts/00_setup_dirs.sh."
+            )
+        cmd = [
+            str(self._cfg.katago),
+            "analysis",
+            "-model",
+            str(self._cfg.model),
+            "-config",
+            str(self._cfg.config),
+        ]
         return subprocess.Popen(
             cmd,
             stdin=subprocess.PIPE,
@@ -59,163 +64,177 @@ class KataGoRequestHandler(socketserver.StreamRequestHandler):
             bufsize=1,
         )
 
-    def _handle_stream(self) -> None:
-        proc = self._spawn_katago()
-
-        def forward_stdout() -> None:
-            assert proc.stdout is not None
-            while True:
-                line = proc.stdout.readline()
-                if not line:
-                    break
-                try:
-                    self.wfile.write(line.encode("utf-8"))
-                    self.wfile.flush()
-                except BrokenPipeError:
-                    break
-
-        thread = threading.Thread(target=forward_stdout, daemon=True)
-        thread.start()
-
+    def terminate(self) -> None:
+        proc = self._proc
+        if proc.poll() is not None:
+            return
+        proc.terminate()
         try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
+
+    def query(self, payload: Dict[str, object]) -> str:
+        text = json.dumps(payload, separators=(",", ":")) + "\n"
+        with self._lock:
+            proc = self._proc
+            if proc.poll() is not None:
+                raise RuntimeError("KataGo engine has exited unexpectedly.")
             assert proc.stdin is not None
-            while True:
-                data = self.rfile.readline()
-                if not data:
-                    break
-                proc.stdin.write(data.decode("utf-8", "ignore"))
-                proc.stdin.flush()
-        finally:
-            try:
-                proc.stdin.close()  # type: ignore[call-arg]
-            except Exception:
-                pass
-            proc.wait(timeout=5)
-
-    def _handle_http(self) -> None:
-        request_line = self.rfile.readline().decode("latin1", "ignore")
-        parts = request_line.strip().split()
-        if len(parts) != 3:
-            self._send_http_error(400, "Bad Request")
-            return
-        method, _path, _version = parts
-        if method.upper() != "POST":
-            self._send_http_error(405, "Method Not Allowed")
-            return
-
-        headers = {}
-        while True:
-            line = self.rfile.readline()
-            if line in (b"\r\n", b"\n", b""):
-                break
-            key, _, value = line.decode("latin1", "ignore").partition(":")
-            headers[key.strip().lower()] = value.strip()
-
-        try:
-            length = int(headers.get("content-length", "0"))
-        except ValueError:
-            self._send_http_error(411, "Length Required")
-            return
-
-        body = self.rfile.read(length) if length else b""
-        if not body:
-            self._send_http_error(400, "Empty body")
-            return
-
-        try:
-            json.loads(body.decode("utf-8"))
-        except json.JSONDecodeError:
-            self._send_http_error(400, "Body must be valid JSON")
-            return
-
-        proc = self._spawn_katago()
-        assert proc.stdin is not None and proc.stdout is not None
-
-        try:
-            text_body = body.decode("utf-8")
-            if not text_body.endswith("\n"):
-                text_body += "\n"
-            proc.stdin.write(text_body)
+            assert proc.stdout is not None
+            proc.stdin.write(text)
             proc.stdin.flush()
-            try:
-                proc.stdin.close()  # type: ignore[call-arg]
-            except Exception:
-                pass
-
-            responses: List[str] = []
+            request_id = payload.get("id") if isinstance(payload, dict) else None
+            lines: list[str] = []
             while True:
                 line = proc.stdout.readline()
                 if not line:
-                    break
-                responses.append(line)
-        finally:
-            proc.wait(timeout=5)
+                    raise RuntimeError("KataGo produced no response and may have exited.")
+                lines.append(line)
+                try:
+                    parsed = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(parsed, dict):
+                    if "error" in parsed:
+                        break
+                    parsed_id = parsed.get("id")
+                    is_alive = parsed.get("isAlive")
+                    if request_id is None:
+                        if is_alive is False:
+                            break
+                        if "isAlive" not in parsed:
+                            break
+                    else:
+                        if parsed_id == request_id and is_alive is False:
+                            break
+                        if parsed_id == request_id and "isAlive" not in parsed:
+                            break
+            return "".join(lines)
 
-        if not responses:
-            self._send_http_error(502, "No response from KataGo")
+
+class KataGoRequestHandler(BaseHTTPRequestHandler):
+    engine: KataGoEngine  # Injected at server startup.
+
+    def do_POST(self) -> None:  # noqa: N802 - inherited
+        if self.path != "/query":
+            self._send_error(HTTPStatus.NOT_FOUND, "Only /query is supported")
             return
-
-        response_text = "".join(responses)
-        payload = response_text.encode("utf-8")
-        headers_out = (
-            f"HTTP/1.1 200 OK\r\n"
-            f"Content-Type: application/json\r\n"
-            f"Content-Length: {len(payload)}\r\n"
-            f"Connection: close\r\n\r\n"
-        ).encode("ascii")
-        self.wfile.write(headers_out)
-        self.wfile.write(payload)
-        self.wfile.flush()
-
-    def _send_http_error(self, status: int, message: str) -> None:
-        body = json.dumps({"error": message, "status": status})
-        payload = body.encode("utf-8")
-        headers_out = (
-            f"HTTP/1.1 {status} {message}\r\n"
-            f"Content-Type: application/json\r\n"
-            f"Content-Length: {len(payload)}\r\n"
-            f"Connection: close\r\n\r\n"
-        ).encode("ascii")
+        content_length = self.headers.get("Content-Length")
+        if content_length is None:
+            self._send_error(HTTPStatus.LENGTH_REQUIRED, "Missing Content-Length header")
+            return
         try:
-            self.wfile.write(headers_out)
-            self.wfile.write(payload)
-            self.wfile.flush()
-        except BrokenPipeError:
-            pass
+            length = int(content_length)
+        except ValueError:
+            self._send_error(HTTPStatus.BAD_REQUEST, "Invalid Content-Length header")
+            return
+        body = self.rfile.read(length)
+        if not body:
+            self._send_error(HTTPStatus.BAD_REQUEST, "Empty request body")
+            return
+        try:
+            payload = json.loads(body.decode("utf-8"))
+        except json.JSONDecodeError:
+            self._send_error(HTTPStatus.BAD_REQUEST, "Body must be valid JSON")
+            return
+        if not isinstance(payload, dict):
+            self._send_error(HTTPStatus.BAD_REQUEST, "Body must be a JSON object")
+            return
+        try:
+            response_text = self.engine.query(payload)
+        except FileNotFoundError as exc:
+            self._send_error(HTTPStatus.SERVICE_UNAVAILABLE, str(exc))
+            return
+        except Exception as exc:  # noqa: BLE001 - surface engine failures
+            self._send_error(HTTPStatus.BAD_GATEWAY, f"KataGo query failed: {exc}")
+            return
+        response_bytes = response_text.encode("utf-8")
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(response_bytes)))
+        self.end_headers()
+        self.wfile.write(response_bytes)
+
+    def do_GET(self) -> None:  # noqa: N802 - inherited
+        self._send_error(HTTPStatus.METHOD_NOT_ALLOWED, "Use POST /query")
+
+    def log_message(self, format: str, *args: object) -> None:  # noqa: A003 - match BaseHTTPRequestHandler
+        sys.stderr.write("[serve.py] " + (format % args) + "\n")
+
+    def _send_error(self, status: HTTPStatus, message: str) -> None:
+        body = json.dumps({"error": message, "status": status.value})
+        data = body.encode("utf-8")
+        self.send_response(status.value)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
 
-def main() -> None:
+def parse_args() -> argparse.Namespace:
+    repo_root = Path(__file__).resolve().parent
+    default_katago = repo_root / ".bin/katago"
+    default_model = repo_root / "models/latest.bin.gz"
+    default_config = Path(os.environ.get("KATAGO_CONFIG", repo_root / "config/analysis.cfg"))
+
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--listen", default="0.0.0.0")
+    parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=2388)
-    parser.add_argument("--katago", required=True)
-    parser.add_argument("--model", required=True)
-    parser.add_argument("--config", required=True)
-    parser.add_argument(
-        "--override-config",
-        action="append",
-        default=[],
-        help="Additional -override-config entries passed to KataGo",
-    )
-    parser.add_argument(
-        "--log-level",
-        default="INFO",
-        choices=["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"],
-    )
-    args = parser.parse_args()
+    parser.add_argument("--katago", type=Path, default=default_katago)
+    parser.add_argument("--model", type=Path, default=default_model)
+    parser.add_argument("--config", type=Path, default=default_config)
+    parser.add_argument("--selftest", action="store_true", help="Run a query_version check and exit")
+    return parser.parse_args()
 
-    logging.basicConfig(level=getattr(logging, args.log_level))
-    base_cmd = build_command(args)
 
-    server = ThreadedTCPServer((args.listen, args.port), KataGoRequestHandler, base_cmd)
-    LOG.info("Serving KataGo on %s:%s", args.listen, args.port)
+def run_server(args: argparse.Namespace, engine: KataGoEngine) -> None:
+    handler_cls = KataGoRequestHandler
+    handler_cls.engine = engine
+    server = ThreadingHTTPServer((args.host, args.port), handler_cls)
+    server.daemon_threads = True
+
+    def shutdown(_signum: int, _frame: Optional[object]) -> None:
+        server.shutdown()
+
+    signal.signal(signal.SIGINT, shutdown)
+    signal.signal(signal.SIGTERM, shutdown)
     try:
         server.serve_forever()
-    except KeyboardInterrupt:
-        LOG.info("Shutting down KataGo proxy")
     finally:
+        engine.terminate()
         server.server_close()
 
 
+def run_selftest(engine: KataGoEngine) -> int:
+    try:
+        response_text = engine.query({"id": "selftest", "action": "query_version"})
+    except Exception as exc:  # noqa: BLE001
+        print(f"Selftest failed: {exc}", file=sys.stderr)
+        engine.terminate()
+        return 1
+    engine.terminate()
+    print(response_text.strip())
+    return 0
+
+
+def main() -> int:
+    args = parse_args()
+    cfg = EngineConfig(katago=args.katago, model=args.model, config=args.config)
+    try:
+        engine = KataGoEngine(cfg)
+    except (FileNotFoundError, PermissionError) as exc:
+        print(f"Failed to launch KataGo: {exc}", file=sys.stderr)
+        return 1
+    except Exception as exc:  # noqa: BLE001
+        print(f"Failed to launch KataGo: {exc}", file=sys.stderr)
+        return 1
+    if args.selftest:
+        return run_selftest(engine)
+    run_server(args, engine)
+    return 0
+
+
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
