@@ -15,6 +15,8 @@ CONFIG_PATH="${CONFIG_DIR}/analysis.cfg"
 RELEASE_TAG="v1.16.3"
 RELEASE_API_URL="https://api.github.com/repos/lightvector/KataGo/releases/tags/${RELEASE_TAG}"
 ZIP_URL_OVERRIDE="${KATAGO_RELEASE_URL:-}"
+APPIMAGE_URL="https://github.com/lightvector/KataGo/releases/download/${RELEASE_TAG}/katago-v1.16.3-cuda12.8-linux-x64.AppImage"
+APPIMAGE_PATH="${BIN_DIR}/katago.AppImage"
 KATAGO_BIN="${BIN_DIR}/katago"
 
 require_cmd() {
@@ -25,11 +27,6 @@ require_cmd() {
 }
 
 require_cmd curl
-require_cmd unzip
-
-if [[ "${CI_MOCK_ENGINE:-0}" != "1" && -z "${ZIP_URL_OVERRIDE}" ]]; then
-  require_cmd jq
-fi
 
 mkdir -p "${BIN_DIR}" "${MODELS_DIR}" "${CONFIG_DIR}" "${LOGS_DIR}"
 
@@ -89,6 +86,8 @@ determine_zip_url() {
     return 0
   fi
 
+  require_cmd jq
+
   # shellcheck disable=SC2016 # jq script uses regexes and literal $ characters.
   local jq_filter='
     [ .assets[]
@@ -137,32 +136,70 @@ determine_zip_url() {
   printf '%s' "${asset_url}"
 }
 
-install_release() {
+install_appimage() {
+  local arch="$(uname -m 2>/dev/null || echo unknown)"
+  if [[ "${arch}" != "x86_64" && "${arch}" != "amd64" ]]; then
+    echo "Host architecture ${arch} is not supported by the KataGo AppImage." >&2
+    return 1
+  fi
+
+  if ! command -v nvidia-smi >/dev/null 2>&1; then
+    echo "nvidia-smi not found; unable to confirm NVIDIA GPU presence. Skipping AppImage download." >&2
+    return 1
+  fi
+
+  if ! nvidia-smi >/dev/null 2>&1; then
+    echo "nvidia-smi command failed; skipping AppImage download." >&2
+    return 1
+  fi
+
+  echo "Installing KataGo AppImage from ${APPIMAGE_URL}" >&2
+  local tmp_path="${APPIMAGE_PATH}.tmp"
+  rm -f "${tmp_path}" "${APPIMAGE_PATH}"
+  if ! curl -fL "${APPIMAGE_URL}" -o "${tmp_path}"; then
+    echo "Failed to download KataGo AppImage." >&2
+    rm -f "${tmp_path}"
+    return 1
+  fi
+
+  mv -f "${tmp_path}" "${APPIMAGE_PATH}"
+  chmod +x "${APPIMAGE_PATH}"
+
+  cat >"${KATAGO_BIN}" <<'WRAPPER'
+#!/usr/bin/env bash
+DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+exec "$DIR/katago.AppImage" "$@"
+WRAPPER
+  chmod +x "${KATAGO_BIN}"
+
+  INSTALL_METHOD="appimage"
+  return 0
+}
+
+install_zip_release() {
+  require_cmd unzip
+
   local zip_url
   zip_url="$(determine_zip_url)"
   local zip_basename="${zip_url##*/}"
   local zip_path="${BIN_DIR}/${zip_basename}"
 
-  echo "Installing KataGo from ${zip_url} into ${BIN_DIR}" >&2
+  echo "Installing KataGo ZIP release from ${zip_url}" >&2
 
   if [[ ! -f "${zip_path}" ]]; then
     local tmp_zip="${zip_path}.tmp"
     echo "Downloading KataGo release zip..." >&2
-    curl -fL "${zip_url}" -o "${tmp_zip}"
+    if ! curl -fL "${zip_url}" -o "${tmp_zip}"; then
+      echo "Failed to download KataGo release zip." >&2
+      rm -f "${tmp_zip}"
+      exit 1
+    fi
     mv "${tmp_zip}" "${zip_path}"
   fi
 
   local unzip_dir
   unzip_dir="$(mktemp -d)"
   unzip -qo "${zip_path}" -d "${unzip_dir}"
-
-  local appimage_source
-  appimage_source="$(find "${unzip_dir}" -type f -name '*.AppImage' | head -n1)"
-  if [[ -n "${appimage_source}" ]]; then
-    install_from_appimage "${appimage_source}"
-    rm -rf "${unzip_dir}"
-    return
-  fi
 
   local binary_source
   binary_source="$(find "${unzip_dir}" -type f -name 'katago' | head -n1)"
@@ -173,79 +210,78 @@ install_release() {
     exit 1
   fi
 
-  chmod +x "${binary_source}"
-  if "${binary_source}" --appimage-help >/dev/null 2>&1; then
-    install_from_appimage "${binary_source}"
-  else
-    install_from_binary "${binary_source}"
-  fi
-  rm -rf "${unzip_dir}"
-}
-
-install_from_appimage() {
-  local appimage_source="$1"
-  local appimage_name
-  appimage_name="$(basename "${appimage_source}")"
-  local dest_name
-  if [[ "${appimage_name}" == *.AppImage ]]; then
-    dest_name="${appimage_name}"
-  else
-    dest_name="${appimage_name}.AppImage"
-  fi
-  local appimage_path="${BIN_DIR}/${dest_name}"
-
-  rm -f "${appimage_path}"
-  mv -f "${appimage_source}" "${appimage_path}"
-  chmod +x "${appimage_path}"
-
-  rm -f "${KATAGO_BIN}"
-  rm -rf "${BIN_DIR}/squashfs-root"
-
-  pushd "${BIN_DIR}" >/dev/null
-  "./${dest_name}" --appimage-extract >/dev/null 2>&1 || true
-  if [[ ! -f "squashfs-root/usr/bin/katago" ]]; then
-    echo "Failed to extract KataGo binary from ${appimage_path}." >&2
-    echo "Remove ${BIN_DIR} and rerun ./scripts/native_install.sh." >&2
-    popd >/dev/null
-    exit 1
-  fi
-  mv -f "squashfs-root/usr/bin/katago" "${KATAGO_BIN}"
-  chmod +x "${KATAGO_BIN}"
-  rm -rf "squashfs-root"
-  popd >/dev/null
-}
-
-install_from_binary() {
-  local binary_source="$1"
   local tmp_path="${KATAGO_BIN}.tmp"
-  rm -f "${tmp_path}"
-  rm -f "${KATAGO_BIN}"
+  rm -f "${tmp_path}" "${KATAGO_BIN}"
   cp "${binary_source}" "${tmp_path}"
   chmod +x "${tmp_path}"
   mv -f "${tmp_path}" "${KATAGO_BIN}"
+
+  rm -rf "${unzip_dir}"
+  rm -f "${APPIMAGE_PATH}"
+
+  INSTALL_METHOD="zip"
 }
+
+check_libzip_dependency() {
+  if [[ "${INSTALL_METHOD}" != "zip" ]]; then
+    return 0
+  fi
+
+  if ! command -v ldd >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if ldd "${KATAGO_BIN}" 2>/dev/null | grep -q 'libzip.so.4 => not found'; then
+    echo "The KataGo ZIP binary is missing libzip.so.4 on this system." >&2
+    echo "Using AppImage avoids libzip issues. Run ./scripts/native_install.sh again." >&2
+    exit 1
+  fi
+}
+
+verify_analysis_subcommand() {
+  set +e
+  local output
+  output="$("${KATAGO_BIN}" analysis -help 2>&1)"
+  local status=$?
+  set -e
+  if [[ ${status} -ne 0 ]]; then
+    if [[ "${output}" == *"libzip.so.4"* ]]; then
+      echo "Using AppImage avoids libzip issues. Run ./scripts/native_install.sh again." >&2
+    fi
+    echo "KataGo binary at ${KATAGO_BIN} could not run the analysis subcommand." >&2
+    echo "Remove ${BIN_DIR} and rerun ./scripts/native_install.sh." >&2
+    exit 1
+  fi
+}
+
+verify_version_command() {
+  if ! "${KATAGO_BIN}" version >/dev/null 2>&1; then
+    if ! "${KATAGO_BIN}" --version >/dev/null 2>&1; then
+      echo "KataGo binary at ${KATAGO_BIN} failed to report its version." >&2
+      echo "Try re-running ./scripts/native_install.sh or override KATAGO_RELEASE_URL." >&2
+      exit 1
+    fi
+  fi
+}
+
+INSTALL_METHOD=""
 
 if [[ -L "${KATAGO_BIN}" ]]; then
   rm -f "${KATAGO_BIN}"
 fi
 
-install_release
+if install_appimage; then
+  :
+else
+  echo "Falling back to the KataGo ZIP release." >&2
+  install_zip_release
+fi
 
 if [[ ! -x "${KATAGO_BIN}" ]]; then
-  echo "KataGo binary at ${KATAGO_BIN} is not executable after extraction." >&2
+  echo "KataGo binary at ${KATAGO_BIN} is not executable after installation." >&2
   exit 1
 fi
 
-if ! "${KATAGO_BIN}" analysis -help >/dev/null 2>&1; then
-  echo "KataGo binary at ${KATAGO_BIN} could not run the analysis subcommand." >&2
-  echo "Remove ${BIN_DIR} and rerun ./scripts/native_install.sh." >&2
-  exit 1
-fi
-
-if ! "${KATAGO_BIN}" version >/dev/null 2>&1; then
-  if ! "${KATAGO_BIN}" --version >/dev/null 2>&1; then
-    echo "KataGo binary at ${KATAGO_BIN} failed to report its version." >&2
-    echo "Try re-running ./scripts/native_install.sh or override KATAGO_RELEASE_URL." >&2
-    exit 1
-  fi
-fi
+check_libzip_dependency
+verify_analysis_subcommand
+verify_version_command

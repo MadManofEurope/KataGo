@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=%h/KataGo
-ExecStart=%h/KataGo/serve.py
+ExecStart=%h/KataGo/serve.py --host 127.0.0.1 --port 2388 --katago %h/KataGo/.bin/katago --model %h/KataGo/models/latest.bin.gz --config %h/KataGo/config/analysis.cfg
 Restart=always
 
 [Install]

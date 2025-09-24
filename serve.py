@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -14,7 +15,7 @@ from dataclasses import dataclass
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional, TextIO
 
 
 REPO_ROOT = Path(__file__).resolve().parent
@@ -46,6 +47,8 @@ class KataGoEngine:
     def __init__(self, cfg: EngineConfig) -> None:
         self._cfg = cfg
         self._lock = threading.Lock()
+        self._libzip_hint_emitted = False
+        self._stderr_thread: Optional[threading.Thread] = None
         self._proc = self._launch()
 
     def _launch(self) -> subprocess.Popen:
@@ -57,14 +60,41 @@ class KataGoEngine:
             "-config",
             str(self._cfg.config),
         ]
-        return subprocess.Popen(
+        proc = subprocess.Popen(
             cmd,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
-            stderr=sys.stderr,
+            stderr=subprocess.PIPE,
             text=True,
             bufsize=1,
         )
+        if proc.stderr is not None:
+            thread = threading.Thread(
+                target=self._forward_stderr,
+                args=(proc.stderr,),
+                name="katago-stderr-forward",
+                daemon=True,
+            )
+            thread.start()
+            self._stderr_thread = thread
+        return proc
+
+    def _forward_stderr(self, stream: TextIO) -> None:
+        try:
+            for line in stream:
+                sys.stderr.write(line)
+                sys.stderr.flush()
+                if "libzip.so.4" in line and not self._libzip_hint_emitted:
+                    self._libzip_hint_emitted = True
+                    sys.stderr.write(
+                        "Using AppImage avoids libzip issues. Run ./scripts/native_install.sh again.\n"
+                    )
+                    sys.stderr.flush()
+        finally:
+            try:
+                stream.close()
+            except Exception:  # noqa: BLE001 - best effort close
+                pass
 
     def terminate(self) -> None:
         proc = self._proc
@@ -76,6 +106,8 @@ class KataGoEngine:
         except subprocess.TimeoutExpired:
             proc.kill()
             proc.wait(timeout=5)
+        if self._stderr_thread is not None:
+            self._stderr_thread.join(timeout=1)
 
     def query(self, payload: Dict[str, object]) -> str:
         text = json.dumps(payload, separators=(",", ":")) + "\n"
@@ -243,6 +275,10 @@ def collect_environment_errors(katago: Path, model: Path, config: Path) -> List[
         errors.append(
             f"KataGo binary at {katago} is not executable. Re-run {INSTALL_COMMAND}."
         )
+    else:
+        hint = detect_libzip_issue(katago)
+        if hint is not None:
+            errors.append(hint)
     if not model.exists():
         errors.append(
             f"Missing model file at {model}. Run {MODEL_COMMAND} after {INSTALL_COMMAND}."
@@ -268,6 +304,41 @@ def collect_environment_errors(katago: Path, model: Path, config: Path) -> List[
             f"Config file at {config} is not readable. Fix permissions or rerun {INSTALL_COMMAND}."
         )
     return errors
+
+
+def detect_libzip_issue(katago: Path) -> Optional[str]:
+    appimage_path = katago.parent / "katago.AppImage"
+    if appimage_path.exists():
+        return None
+    try:
+        result = subprocess.run(
+            [str(katago), "--version"],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+    except OSError:
+        return None
+    output = (result.stdout or "") + (result.stderr or "")
+    if "libzip.so.4" in output:
+        return "Using AppImage avoids libzip issues. Run ./scripts/native_install.sh again."
+    if shutil.which("ldd") is None:
+        return None
+    try:
+        ldd_result = subprocess.run(
+            ["ldd", str(katago)],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+    except OSError:
+        return None
+    combined = (ldd_result.stdout or "") + (ldd_result.stderr or "")
+    if "libzip.so.4" in combined:
+        return "Using AppImage avoids libzip issues. Run ./scripts/native_install.sh again."
+    return None
 
 
 def print_environment_errors(errors: List[str]) -> None:

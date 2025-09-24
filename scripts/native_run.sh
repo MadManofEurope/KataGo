@@ -25,6 +25,11 @@ resolve_path() {
   fi
 }
 
+echo "Preparing to start KataGo JSON server on 127.0.0.1:2388"
+echo "  KataGo binary : ${KATAGO_BIN} -> $(resolve_path "${KATAGO_BIN}")"
+echo "  Model symlink : ${MODEL_PATH} -> $(resolve_path "${MODEL_PATH}")"
+echo "  Config file   : ${CONFIG_PATH} -> $(resolve_path "${CONFIG_PATH}")"
+
 if [[ ! -x "${KATAGO_BIN}" ]]; then
   echo "Missing KataGo binary at ${KATAGO_BIN}. Run ${INSTALL_SCRIPT}" >&2
   exit 1
@@ -47,6 +52,18 @@ fi
 
 if [[ ! -r "${MODEL_PATH}" ]]; then
   echo "KataGo model at ${MODEL_PATH} is not readable." >&2
+  exit 1
+fi
+
+set +e
+analysis_output="$(${KATAGO_BIN} analysis -help 2>&1)"
+analysis_status=$?
+set -e
+if [[ ${analysis_status} -ne 0 ]]; then
+  if [[ "${analysis_output}" == *"libzip.so.4"* ]]; then
+    echo "Using AppImage avoids libzip issues. Run ./scripts/native_install.sh again." >&2
+  fi
+  echo "KataGo binary at ${KATAGO_BIN} failed the 'analysis -help' check." >&2
   exit 1
 fi
 
