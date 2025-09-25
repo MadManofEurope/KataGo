@@ -1,10 +1,11 @@
-# KataGo JSON Analysis Service (2.1)
+# KataGo JSON Analysis Service (2.4)
 
-Dockerized KataGo JSON analysis server tuned for Ubuntu 24.04 hosts with NVIDIA GPUs. The runtime image is based on
-`nvidia/cuda:12.5.1-runtime-ubuntu24.04`, downloads the official CUDA 12.5 build of KataGo v1.16.3, and exposes the
-JSON API on port 2388.
+Dockerized KataGo JSON analysis server tuned for NVIDIA GPUs. The runtime image is based on
+`nvidia/cuda:12.5.1-cudnn-runtime-ubuntu22.04`, downloads the official CUDA 12.5 build of KataGo v1.16.3, and exposes the
+JSON API on port 2388. The KataGo AppImage is extracted during the Docker build so the runtime container never requires
+FUSE support.
 
-## What's new in 2.1
+## What's new in 2.4
 
 - Local-first Docker Compose workflow that always builds the image from source before running.
 - Host-mounted configuration respected via `${KATAGO_CONFIG:-/config/analysis.cfg}` so local edits take effect immediately.
@@ -63,7 +64,7 @@ and indicate the GPU-enabled analysis service is ready.
 ## No host cuDNN
 
 Do **not** install `cudnn-local-repo-ubuntu2204-8.9.7.29_1.0-1_amd64.deb` or any other host-level cuDNN packages. The container
-image `nvidia/cuda:12.5.1-cudnn-runtime-ubuntu24.04` already bundles cuDNN, and the entrypoint logs a warning if `libcudnn`
+image `nvidia/cuda:12.5.1-cudnn-runtime-ubuntu22.04` already bundles cuDNN, and the entrypoint logs a warning if `libcudnn`
 is unexpectedly missing from `ldconfig -p` output.
 
 ## Compose details
@@ -74,12 +75,12 @@ container healthcheck posts `query_version` to the JSON endpoint to verify readi
 
 ## Troubleshooting
 
-- If the Docker build fails immediately at the `FROM` instruction, verify that `nvidia/cuda:12.5.1-runtime-ubuntu24.04` still
+- If the Docker build fails immediately at the `FROM` instruction, verify that `nvidia/cuda:12.5.1-cudnn-runtime-ubuntu22.04` still
   exists on Docker Hub and adjust the tag if NVIDIA republishes it under a different name.
 
 ## References
 
 - [KataGo releases](https://github.com/lightvector/KataGo/releases)
-- [CUDA 12.5.1 runtime Ubuntu 24.04 tag](https://hub.docker.com/r/nvidia/cuda/tags?name=12.5.1-runtime-ubuntu24.04)
+- [CUDA 12.5.1 cuDNN runtime Ubuntu 22.04 tag](https://hub.docker.com/r/nvidia/cuda/tags?name=12.5.1-cudnn-runtime-ubuntu22.04)
 - [Docker: Use GPUs with Compose](https://docs.docker.com/compose/gpu-support/)
 - [NVIDIA Container Toolkit install guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
