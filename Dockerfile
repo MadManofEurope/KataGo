@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.5.1-runtime-ubuntu24.04 AS downloader
+FROM nvidia/cuda:12.5.1-cudnn-runtime-ubuntu22.04 AS downloader
 
 ARG KATAGO_VER=v1.16.3
 ARG KATAGO_FLAVOR=cuda12.5-cudnn8.9.7-linux-x64
@@ -18,13 +18,13 @@ RUN set -eux; \
   unzip -j katago.zip katago; \
   rm katago.zip
 
-FROM nvidia/cuda:12.5.1-runtime-ubuntu24.04
+FROM nvidia/cuda:12.5.1-cudnn-runtime-ubuntu22.04
 
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
-    libzip4t64 \
+    libzip4 \
     python3 \
   && rm -rf /var/lib/apt/lists/*
 
@@ -32,11 +32,20 @@ RUN useradd --create-home --shell /usr/sbin/nologin katago
 
 WORKDIR /opt/katago
 
-COPY --from=downloader /tmp/katago/katago /opt/katago/katago
+COPY --from=downloader /tmp/katago/katago /opt/katago/katago.AppImage
+
+# Extract the AppImage so the runtime can execute without FUSE
+RUN set -eux; \
+  chmod +x /opt/katago/katago.AppImage; \
+  /opt/katago/katago.AppImage --appimage-extract; \
+  mv squashfs-root /opt/katago/appdir; \
+  chmod +x /opt/katago/appdir/AppRun; \
+  ln -sf /opt/katago/appdir/AppRun /opt/katago/katago; \
+  rm /opt/katago/katago.AppImage
 COPY serve.py /opt/katago/serve.py
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 
-RUN chmod 755 /opt/katago/katago /opt/katago/serve.py /usr/local/bin/entrypoint.sh \
+RUN chmod 755 /opt/katago/appdir/AppRun /opt/katago/serve.py /usr/local/bin/entrypoint.sh \
   && chown -R katago:katago /opt/katago /usr/local/bin/entrypoint.sh
 
 USER katago

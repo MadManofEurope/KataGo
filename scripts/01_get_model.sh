@@ -45,10 +45,16 @@ link_latest() {
     echo "ERROR: Unable to resolve absolute path for $source_path" >&2
     exit 1
   fi
-  ln -sfn "${abs_source}" "${MODELS_DIR}/latest.bin.gz"
-  echo "Linked ${MODELS_DIR}/latest.bin.gz -> ${abs_source}"
+  if [[ "${abs_source}" != "${MODELS_DIR}/"* ]]; then
+    echo "ERROR: ${abs_source} must live under ${MODELS_DIR}" >&2
+    exit 1
+  fi
+  local base_name
+  base_name="$(basename "${abs_source}")"
+  ln -sfn "${base_name}" "${MODELS_DIR}/latest.bin.gz"
+  echo "models/latest.bin.gz -> ${base_name}"
   if command -v sha256sum >/dev/null 2>&1; then
-    sha256sum "${abs_source}"
+    sha256sum "${MODELS_DIR}/${base_name}"
   fi
 }
 
@@ -61,7 +67,20 @@ if [[ -n "${MODEL_FILE}" ]]; then
     echo "ERROR: MODEL_FILE must end with .bin.gz" >&2
     exit 1
   fi
-  link_latest "${MODEL_FILE}"
+  base_name="$(basename "${MODEL_FILE}")"
+  dest_path="${MODELS_DIR}/${base_name}"
+  model_abs="$(readlink -f "${MODEL_FILE}")"
+  dest_abs="$(readlink -f "${dest_path}" 2>/dev/null || true)"
+  if [[ "${model_abs}" != "${dest_abs}" ]]; then
+    echo "Copying ${MODEL_FILE} to ${dest_path}" >&2
+    cp -f "${MODEL_FILE}" "${dest_path}"
+  fi
+  if ! gzip -t "${dest_path}"; then
+    echo "Network file ${dest_path} failed gzip integrity check." >&2
+    rm -f "${dest_path}"
+    exit 1
+  fi
+  link_latest "${dest_path}"
 else
   if ! command -v python3 >/dev/null 2>&1; then
     echo "python3 is required to scrape kata1 network links. Install python3 and retry." >&2
