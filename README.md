@@ -36,14 +36,35 @@ curl -fsS http://127.0.0.1:2388 \
 The final `curl` command is the same request used by the container healthcheck. Successful responses include the KataGo version
 and indicate the GPU-enabled analysis service is ready.
 
-## Configuration and models
+## Configuration
 
 - `config/analysis.cfg` is mounted read-only into the container. `scripts/00_setup_dirs.sh` seeds it from
   `config/analysis.cfg.template` if the file is missing. Edit it locally to adjust analysis parameters. The container also forces
   `allowResignation=false` via `-override-config` so KataGo never resigns during analysis sessions.
 - `KATAGO_CONFIG` defaults to `/config/analysis.cfg`; override it in `.env` if you mount the config elsewhere.
-- Models in `models/` are mounted read-only. The runtime expects `/models/latest.bin.gz`; the helper script maintains this symlink so
-  you can keep multiple networks side by side.
+
+## Models
+
+- Place a local network such as `kata1-b28c512nbt-s10904468224-d5317014586.bin.gz` under `models/`, then run:
+
+  ```bash
+  ./scripts/01_get_model.sh --file ./models/kata1-b28c512nbt-s10904468224-d5317014586.bin.gz
+  ```
+
+  The script validates the `.bin.gz` file, prints its resolved path and SHA-256 checksum, and links it as `models/latest.bin.gz`.
+- Alternatively, omit `--file` (or the `MODEL_FILE` environment variable) to download the newest `kata1` network:
+
+  ```bash
+  ./scripts/01_get_model.sh
+  ```
+
+  The helper downloads the most recent network, verifies gzip integrity, and refreshes the `models/latest.bin.gz` symlink.
+
+## No host cuDNN
+
+Do **not** install `cudnn-local-repo-ubuntu2204-8.9.7.29_1.0-1_amd64.deb` or any other host-level cuDNN packages. The container
+image `nvidia/cuda:12.5.1-cudnn-runtime-ubuntu24.04` already bundles cuDNN, and the entrypoint logs a warning if `libcudnn`
+is unexpectedly missing from `ldconfig -p` output.
 
 ## Compose details
 

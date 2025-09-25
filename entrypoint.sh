@@ -1,16 +1,30 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MODEL="${KATAGO_MODEL:-/models/latest.bin.gz}"
-if [[ "${KATAGO_CONFIG+x}" == "x" ]]; then
-  if [[ -z "${KATAGO_CONFIG}" ]]; then
-    echo "KATAGO_CONFIG is set but empty; provide a path to a configuration file." >&2
-    exit 1
-  fi
-  CFG="${KATAGO_CONFIG}"
-else
-  CFG="/opt/katago/analysis.cfg"
+: "${KATAGO_CONFIG:=/config/analysis.cfg}"
+MODEL_LINK="/models/latest.bin.gz"
+MODEL="${KATAGO_MODEL:-${MODEL_LINK}}"
+
+if [[ -z "${KATAGO_CONFIG}" ]]; then
+  echo "KATAGO_CONFIG is set but empty; provide a path to a configuration file." >&2
+  exit 1
 fi
+
+if [[ ! -f "${KATAGO_CONFIG}" ]]; then
+  echo "Missing config: ${KATAGO_CONFIG}" >&2
+  exit 1
+fi
+
+if [[ ! -f "${MODEL_LINK}" ]]; then
+  echo "Missing model: ${MODEL_LINK}" >&2
+  exit 1
+fi
+
+if ! ldconfig -p | grep -q libcudnn; then
+  echo "Warning: libcudnn not visible via ldconfig; proceeding because the base image includes cuDNN." >&2
+fi
+
+CFG="${KATAGO_CONFIG}"
 PORT="${PORT:-2388}"
 LISTEN_ADDR="${KATAGO_LISTEN:-0.0.0.0}"
 
@@ -47,12 +61,6 @@ if [[ -n "${KATAGO_ANALYSIS_THREADS:-}" ]]; then
   CONFIG_OVERRIDES+=("numAnalysisThreads=${KATAGO_ANALYSIS_THREADS}")
 fi
 
-if [[ ! -f "${CFG}" ]]; then
-  echo "Config not found at ${CFG}" >&2
-  ls -l "$(dirname "${CFG}")" || true
-  exit 1
-fi
-
 if [[ -z "${MODEL}" ]]; then
   echo "KATAGO_MODEL is not set." >&2
   exit 1
@@ -60,7 +68,6 @@ fi
 
 if [[ ! -f "${MODEL}" ]]; then
   echo "Model not found at ${MODEL}" >&2
-  ls -l /models || true
   exit 1
 fi
 
