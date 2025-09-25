@@ -8,6 +8,7 @@ services:
       PORT: "${PORT:-2388}"
       KATAGO_CONFIG: "${KATAGO_CONFIG:-/config/analysis.cfg}"
       KATAGO_MODEL: "/models/latest.bin.gz"
+      KATAGO_MODE: "http"
     ports:
       - "${PORT:-2388}:${PORT:-2388}"
     volumes:

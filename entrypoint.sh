@@ -38,7 +38,7 @@ validate_positive_integer() {
   fi
 }
 
-CONFIG_OVERRIDES=("allowResignation=false")
+CONFIG_OVERRIDES=()
 
 NN_MAX_BATCH_SIZE="${KATAGO_NN_MAX_BATCH_SIZE:-32}"
 if [[ -n "${NN_MAX_BATCH_SIZE}" ]]; then
@@ -107,12 +107,19 @@ fi
 
 validate_positive_integer "PORT" "${PORT}"
 
+if [[ "${KATAGO_MODE:-http}" == "stdin" ]]; then
+  echo "Starting KataGo JSON analysis engine (stdin/stdout) with model ${REAL_MODEL} and config ${REAL_CFG}" >&2
+  exec /usr/local/bin/katago analysis \
+    -config "${REAL_CFG}" \
+    -model "${REAL_MODEL}"
+fi
+
 echo "Starting KataGo analysis @ ${LISTEN_ADDR}:${PORT} with model ${REAL_MODEL} and config ${REAL_CFG}" >&2
 
 PROXY_ARGS=(
   --listen "${LISTEN_ADDR}"
   --port "${PORT}"
-  --katago /opt/katago/katago
+  --katago /usr/local/bin/katago
   --model "${REAL_MODEL}"
   --config "${REAL_CFG}"
 )

@@ -1,7 +1,4 @@
-FROM nvidia/cuda:12.5.1-cudnn-runtime-ubuntu22.04 AS downloader
-
-ARG KATAGO_VER=v1.16.3
-ARG KATAGO_FLAVOR=cuda12.5-cudnn8.9.7-linux-x64
+FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04 AS downloader
 
 WORKDIR /tmp/katago
 
@@ -14,11 +11,11 @@ RUN apt-get update \
 
 RUN set -eux; \
   curl -fL -o katago.zip \
-    "https://github.com/lightvector/KataGo/releases/download/${KATAGO_VER}/katago-${KATAGO_VER}-${KATAGO_FLAVOR}.zip"; \
+    "https://github.com/lightvector/KataGo/releases/download/v1.16.3/katago-v1.16.3-cuda12.1-cudnn8.9.7-linux-x64.zip"; \
   unzip -j katago.zip katago; \
   rm katago.zip
 
-FROM nvidia/cuda:12.5.1-cudnn-runtime-ubuntu22.04
+FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
 
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -41,6 +38,7 @@ RUN set -eux; \
   mv squashfs-root /opt/katago/appdir; \
   chmod +x /opt/katago/appdir/AppRun; \
   ln -sf /opt/katago/appdir/AppRun /opt/katago/katago; \
+  ln -sf /opt/katago/appdir/AppRun /usr/local/bin/katago; \
   rm /opt/katago/katago.AppImage
 COPY serve.py /opt/katago/serve.py
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
